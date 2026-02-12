@@ -205,7 +205,7 @@ if __name__ == "__main__":
     #     "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
     # }
     #
-    # n_repeats = 8
+    n_repeats = 8
 
     # 2. Study
     study = optuna.create_study(

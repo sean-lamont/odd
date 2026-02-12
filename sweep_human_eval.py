@@ -42,8 +42,8 @@ problem_list = list(problems_dict.values())
 # OPTUNA OBJECTIVE
 # -------------------------------------------------------------------
 def objective(trial):
-    # strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
-    strategy_alpha = 0.0
+    strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
+    # strategy_alpha = 0.0
     temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
 
     strategy_name = "baseline"
@@ -200,26 +200,26 @@ if __name__ == "__main__":
     n_repeats = 8  # <--- How many times to run the full grid
 
     study = optuna.create_study(
-        study_name="humaneval__v2",
+        study_name="tidy_humaneval",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"
     )
     #
-    if len(study.trials) == 0:
-        print(f">>> Study is empty. Enqueuing grid for {n_repeats} sweeps...")
-        grid_list = list(ParameterGrid(search_space))
-        for r in range(n_repeats):
-            for params in grid_list:
-                study.enqueue_trial(params)
-    else:
-        print(f">>> Study exists ({len(study.trials)} trials). Starting worker...")
-
-    study.optimize(objective, n_trials=len(list(ParameterGrid(search_space))) * n_repeats)
-
-
-    # study.enqueue_trial({'temperature': 1.0, 'strategy.alpha': 2.0})
-    # study.enqueue_trial({'temperature': 0.5, 'strategy.alpha': 16.0})
-    # study.enqueue_trial({'temperature': 2.0, 'strategy.alpha': 64.0})
+    # if len(study.trials) == 0:
+    #     print(f">>> Study is empty. Enqueuing grid for {n_repeats} sweeps...")
+    #     grid_list = list(ParameterGrid(search_space))
+    #     for r in range(n_repeats):
+    #         for params in grid_list:
+    #             study.enqueue_trial(params)
+    # else:
+    #     print(f">>> Study exists ({len(study.trials)} trials). Starting worker...")
     #
-    # study.optimize(objective, n_trials=3)
+    # study.optimize(objective, n_trials=len(list(ParameterGrid(search_space))) * n_repeats)
+
+
+    study.enqueue_trial({'temperature': 1.0, 'strategy.alpha': 2.0})
+    study.enqueue_trial({'temperature': 0.5, 'strategy.alpha': 16.0})
+    study.enqueue_trial({'temperature': 2.0, 'strategy.alpha': 64.0})
+
+    study.optimize(objective, n_trials=3)

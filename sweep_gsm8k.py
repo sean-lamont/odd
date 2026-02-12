@@ -51,8 +51,8 @@ dataset = load_dataset("gsm8k", "main", split="test")
 # OPTUNA OBJECTIVE
 # -------------------------------------------------------------------
 def objective(trial):
-    strategy_alpha = 0.0
-    # strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
+    # strategy_alpha = 0.0
+    strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
     temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
 
     # Fixed Constants (Matching HumanEval Slicing Setup)
@@ -198,37 +198,37 @@ def objective(trial):
 if __name__ == "__main__":
     storage_url = "postgresql://optuna_user:secure_password@127.0.0.1:5432/optuna"
 
-    # 1. Grid
-    search_space = {
-        "strategy.alpha": [2.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-        "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
-    }
-
-    n_repeats = 8
+    # # 1. Grid
+    # search_space = {
+    #     "strategy.alpha": [2.0, 8.0, 16.0, 32.0, 64.0, 128.0],
+    #     "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
+    # }
+    #
+    # n_repeats = 8
 
     # 2. Study
     study = optuna.create_study(
-        study_name="gsm8k__v2",
+        study_name="gsm_tidy",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"
     )
 
-    # 3. Lazy Enqueue (Only if empty)
-    if len(study.trials) == 0:
-        print(f">>> Study is empty. Enqueuing grid for {n_repeats} sweeps...")
-        grid_list = list(ParameterGrid(search_space))
-        for r in range(n_repeats):
-            for params in grid_list:
-                study.enqueue_trial(params)
-    else:
-        print(f">>> Study exists ({len(study.trials)} trials). Starting worker...")
-    study.optimize(objective, n_trials=len(list(ParameterGrid(search_space))) * n_repeats)
+    # # 3. Lazy Enqueue (Only if empty)
+    # if len(study.trials) == 0:
+    #     print(f">>> Study is empty. Enqueuing grid for {n_repeats} sweeps...")
+    #     grid_list = list(ParameterGrid(search_space))
+    #     for r in range(n_repeats):
+    #         for params in grid_list:
+    #             study.enqueue_trial(params)
+    # else:
+    #     print(f">>> Study exists ({len(study.trials)} trials). Starting worker...")
+    # study.optimize(objective, n_trials=len(list(ParameterGrid(search_space))) * n_repeats)
 
 
     #
-    # study.enqueue_trial({'temperature': 0.0, 'strategy.alpha': 8.0})
-    # study.enqueue_trial({'temperature': 0.5, 'strategy.alpha': 2.0})
-    # study.enqueue_trial({'temperature': 1.5, 'strategy.alpha': 16.0})
+    study.enqueue_trial({'temperature': 0.0, 'strategy.alpha': 8.0})
+    study.enqueue_trial({'temperature': 0.5, 'strategy.alpha': 2.0})
+    study.enqueue_trial({'temperature': 1.5, 'strategy.alpha': 16.0})
     #
-    # study.optimize(objective, n_trials=3)
+    study.optimize(objective, n_trials=3)

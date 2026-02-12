@@ -200,10 +200,10 @@ if __name__ == "__main__":
     storage_url = "postgresql://optuna_user:secure_password@127.0.0.1:5432/optuna"
 
     # # 1. Grid
-    # search_space = {
-    #     "strategy.alpha": [2.0, 8.0, 16.0, 32.0, 64.0, 128.0],
-    #     "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
-    # }
+    search_space = {
+        "strategy.alpha": [2.0, 8.0, 16.0, 32.0, 64.0, 128.0],
+        "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
+    }
     #
     n_repeats = 8
 

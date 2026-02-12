@@ -116,15 +116,16 @@ def plot_alpha_equally_spaced(csv_path, metric_col, strategy_col, temp_col, alph
     plt.tight_layout()
 
     # Save & Show
-    plt.savefig('humaneval.png')
+    plt.savefig('gsm_div.png')
     plt.show()
 
 
 # --- Usage Example ---
 if __name__ == "__main__":
     plot_alpha_equally_spaced(
-        csv_path='human_eval.csv',
-        metric_col='pass_at_16',
+        csv_path='gsm8k.csv',
+        # metric_col='pass_at_16',
+        metric_col='avg_diversity',
         strategy_col='strategy',
         temp_col='temperature',
         alpha_key='alpha'

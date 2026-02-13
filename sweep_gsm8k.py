@@ -52,12 +52,20 @@ dataset = load_dataset("gsm8k", "main", split="test")
 # -------------------------------------------------------------------
 def objective(trial):
     # strategy_alpha = 0.0
+    # strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
+    # temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
+    #
+
     strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
-    temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
+    # temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
+    temperature = trial.suggest_categorical("temperature", [1.0])
+
+    strategy_name = "batched_orth"
+
 
     # Fixed Constants (Matching HumanEval Slicing Setup)
     # strategy_name = "baseline"
-    strategy_name = "joint" #"orthogonal_projection"
+    # strategy_name = "joint" #"orthogonal_projection"
     strategy_quality = 1.0
     strategy_target = "logits"
     strategy_pool = "max"
@@ -84,7 +92,7 @@ def objective(trial):
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="gsm8k",
-        group="joint_eval_q2",
+        group="batched_orth",
         name=run_name,
         config=OmegaConf.to_container(cfg, resolve=True),
         reinit=True
@@ -209,7 +217,7 @@ if __name__ == "__main__":
 
     # 2. Study
     study = optuna.create_study(
-        study_name="gsm8k_joint_v1",
+        study_name="batched_orth_gsm",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

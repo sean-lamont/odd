@@ -374,7 +374,7 @@ class JointStrategy(DPPStrategy):
         jitter = 1e-4
 
         q_mat = torch.outer(quals, quals)
-        L = K * (self.quality_scale * q_mat)
+        L = K * (1 + self.quality_scale * q_mat)
 
         # quals_detached = quals.detach()
         # q_mat = torch.outer(quals_detached, quals_detached)

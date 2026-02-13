@@ -73,7 +73,7 @@ def objective(trial):
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="humaneval",
-        group="joint_eval",
+        group="joint_eval_q2",
         name=run_name,
         config=OmegaConf.to_container(cfg, resolve=True),
         reinit=True
@@ -199,7 +199,7 @@ if __name__ == "__main__":
     n_repeats = 8  # <--- How many times to run the full grid
 
     study = optuna.create_study(
-        study_name="joint_humaneval",
+        study_name="joint_humaneval_v1",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

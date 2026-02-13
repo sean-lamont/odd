@@ -84,7 +84,7 @@ def objective(trial):
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="gsm8k",
-        group="orth_eval",
+        group="joint_eval_q2",
         name=run_name,
         config=OmegaConf.to_container(cfg, resolve=True),
         reinit=True
@@ -209,7 +209,7 @@ if __name__ == "__main__":
 
     # 2. Study
     study = optuna.create_study(
-        study_name="gsm8k_joint",
+        study_name="gsm8k_joint_v1",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

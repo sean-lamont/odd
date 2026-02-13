@@ -17,8 +17,21 @@ def plot_pass1_vs_pass16_corrected(json_path):
     # 2. Flatten JSON into a list of runs
     rows = []
 
+    # Filter constraints
+    ALLOWED_STRATEGIES = ["baseline", "orthogonal_projection"]
+
     for problem_id, runs_list in data.items():
         for run in runs_list:
+            # --- FILTER LOGIC ---
+            # We assume the JSON run object has a 'strategy' key.
+            # If missing, we default to 'orthogonal_projection' to be safe with older data,
+            # unless you have mixed data without labels, in which case stricter handling is needed.
+            run_strategy = run.get('strategy', 'orthogonal_projection')
+
+            if run_strategy not in ALLOWED_STRATEGIES:
+                continue
+            # --------------------
+
             alpha = run.get('alpha')
             temp = run.get('temperature')
 
@@ -44,6 +57,10 @@ def plot_pass1_vs_pass16_corrected(json_path):
                 'raw_count': count
             })
 
+    if not rows:
+        print("No data found matching the allowed strategies.")
+        return
+
     df = pd.DataFrame(rows)
 
     # --- DEBUG SECTION ---
@@ -51,6 +68,7 @@ def plot_pass1_vs_pass16_corrected(json_path):
     failed_runs = len(df[df['raw_count'] == 0])
     print("=" * 40)
     print(f"DEBUG DATA CHECK")
+    print(f"Strategies Included: {ALLOWED_STRATEGIES}")
     print(f"Total Runs Processed: {total_runs}")
     print(f"Runs with pass_count == 0: {failed_runs}")
     print(f"Runs with pass_count > 0:  {total_runs - failed_runs}")
@@ -61,15 +79,12 @@ def plot_pass1_vs_pass16_corrected(json_path):
     # ---------------------
 
     # 3. STAGE 1 AGGREGATION: Average over runs per Problem
-    # For a specific problem + config, we might have 5 runs.
-    # If 2 passed and 3 failed, the problem's score is 0.4.
     problem_level = df.groupby(['problem_id', 'alpha', 'temperature'])[['p1_run', 'p16_run']].mean().reset_index()
 
     # Rename for clarity
     problem_level = problem_level.rename(columns={'p1_run': 'p1_problem', 'p16_run': 'p16_problem'})
 
     # 4. STAGE 2 AGGREGATION: Average over Problems
-    # Now we average the problem scores to get the global configuration score
     final_df = problem_level.groupby(['alpha', 'temperature'])[['p1_problem', 'p16_problem']].mean().reset_index()
 
     # 5. Plotting
@@ -104,7 +119,7 @@ def plot_pass1_vs_pass16_corrected(json_path):
                     fontweight='bold'
                 )
 
-    plt.title('Pass@1 vs Pass@16 Trade-off (Two-Stage Aggregation)', fontsize=14)
+    plt.title('Pass@1 vs Pass@16 Trade-off (Filtered)', fontsize=14)
     plt.xlabel('Pass@1 (Average Efficiency)', fontsize=12)
     plt.ylabel('Pass@16 (Probability of Solution)', fontsize=12)
     plt.legend(title='Alpha')
@@ -115,10 +130,10 @@ def plot_pass1_vs_pass16_corrected(json_path):
     plt.ylim(bottom=0, top=1.05)
 
     plt.tight_layout()
-    plt.savefig('pass1_vs_pass16_corrected.png')
+    plt.savefig('pass1_vs_pass16_filtered_gsm.png')
     plt.show()
 
 
 # --- Usage ---
 if __name__ == "__main__":
-    plot_pass1_vs_pass16_corrected('human_eval_table.json')
+    plot_pass1_vs_pass16_corrected('gsm_table_v2.json')

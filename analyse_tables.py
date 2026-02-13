@@ -76,13 +76,16 @@ def fetch_wandb_data(entity, project, table_key_name="evaluation_results_table")
 
             # -- D. Filter & Count Successes --
             # Ensure we count only where passed == True
-            passed_df = df[df['passed'] == True]
+            # passed_df = df[df['passed'] == True]
+            # gsm8k
+            passed_df = df[df['is_correct'] == True]
 
             if passed_df.empty:
                 continue
 
             # Count successes per task_id
-            success_counts = passed_df.groupby('task_id').size()
+            success_counts = passed_df.groupby('question').size()
+            # success_counts = passed_df.groupby('task_id').size()
 
             for task_id, count in success_counts.items():
                 problem_map[task_id].append({
@@ -138,9 +141,9 @@ def load_results(filename="wandb_results.json"):
 if __name__ == "__main__":
 
     ENTITY = "tactic-zero"
-    PROJECT = "humaneval"
+    PROJECT = "gsm8k"
     TABLE_NAME = "results_table"  # The name visible in W&B UI
-    FILENAME = "human_eval_table.json"
+    FILENAME = "gsm8k_table.json"
 
     # Option A: Load from file if it exists
     if os.path.exists(FILENAME):

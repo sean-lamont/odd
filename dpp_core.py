@@ -337,6 +337,7 @@ class OrthogonalProjectionStrategy(DPPStrategy):
                 if target_norm > 1e-6:
                     target_dir = v_target / target_norm
                     alignment = torch.dot(norm_vec_k.view(-1), target_dir.view(-1))
+                    # todo try with (self.quality_scale + qual_k)
                     loss = -alignment * (self.quality_scale * qual_k)
                     # loss = -alignment * (self.quality_scale * qual_k.detach())
 
@@ -374,6 +375,7 @@ class JointStrategy(DPPStrategy):
         jitter = 1e-4
 
         q_mat = torch.outer(quals, quals)
+        # todo try with (self.quality_scale + q_mat)
         L = K * (1 + self.quality_scale * q_mat)
 
         # quals_detached = quals.detach()

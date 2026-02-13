@@ -34,15 +34,24 @@ def fetch_wandb_data(entity, project, table_key_name="evaluation_results_table")
             except:
                 strategy = {}
 
+        # Extract Params
         alpha = strategy.get('alpha', None)
+
+        # --- NEW: Extract Strategy Name ---
+        # We assume the key is 'name' or 'type' at the same level as 'alpha'
+        strategy_name = strategy.get('name', strategy.get('type', 'unknown'))
+        # ----------------------------------
+
         temperature = config.get('temperature', None)
 
+        # Skip runs that don't have the required hyperparameters
         if alpha is None or temperature is None:
             continue
 
         # -- B. Find the Table Artifact --
         target_artifact = None
         try:
+            # Look for the specific table artifact logged in this run
             for artifact in run.logged_artifacts():
                 if table_key_name in artifact.name:
                     target_artifact = artifact
@@ -55,10 +64,10 @@ def fetch_wandb_data(entity, project, table_key_name="evaluation_results_table")
 
         # -- C. Download & Read Table --
         try:
-            # Download artifact directory
+            # Download artifact directory (caches locally)
             table_dir = target_artifact.download()
 
-            # Find the .table.json file
+            # Find the .table.json file inside the artifact dir
             json_path = None
             for f in os.listdir(table_dir):
                 if f.endswith(".table.json"):
@@ -74,28 +83,35 @@ def fetch_wandb_data(entity, project, table_key_name="evaluation_results_table")
             # Create DataFrame
             df = pd.DataFrame(table_data['data'], columns=table_data['columns'])
 
-            # -- D. Filter & Count Successes --
-            # Ensure we count only where passed == True
-            # passed_df = df[df['passed'] == True]
-            # gsm8k
-            passed_df = df[df['is_correct'] == True]
+            # -- D. Sum Successes (Don't Filter) --
 
-            if passed_df.empty:
+            # 1. Ensure 'is_correct' is treated as a number (True=1, False=0)
+            col_name = 'is_correct' if 'is_correct' in df.columns else 'passed'
+
+            if col_name not in df.columns:
+                print(f"Skipping run {run.name}: Column '{col_name}' not found.")
                 continue
 
-            # Count successes per task_id
-            success_counts = passed_df.groupby('question').size()
-            # success_counts = passed_df.groupby('task_id').size()
+            # Convert boolean/string to integer 1/0
+            df[col_name] = df[col_name].astype(int)
 
+            # 2. Group by Question and SUM the correct answers
+            group_key = 'question' if 'question' in df.columns else 'task_id'
+
+            # This series has Index=Question, Value=Sum of Correct
+            success_counts = df.groupby(group_key)[col_name].sum()
+
+            # 3. Store Data
             for task_id, count in success_counts.items():
                 problem_map[task_id].append({
-                    'alpha': float(alpha),  # Convert to native float
+                    'strategy': str(strategy_name),  # <--- NEW FIELD
+                    'alpha': float(alpha),
                     'temperature': float(temperature),
-                    'pass_count': int(count)  # Convert numpy int to native int
+                    'pass_count': int(count)
                 })
 
         except Exception as e:
-            print(f"Skipping run {run.name} due to error: {e}")
+            # print(f"Skipping run {run.name} due to error: {e}")
             continue
 
     return dict(problem_map)
@@ -140,10 +156,11 @@ def load_results(filename="wandb_results.json"):
 # --- 3. Main Execution Block ---
 if __name__ == "__main__":
 
-    ENTITY = "tactic-zero"
-    PROJECT = "gsm8k"
-    TABLE_NAME = "results_table"  # The name visible in W&B UI
-    FILENAME = "gsm8k_table.json"
+    # --- CONFIGURATION ---
+    ENTITY = "tactic-zero"  # Update with your W&B Entity
+    PROJECT = "gsm8k"  # Update with your W&B Project Name
+    TABLE_NAME = "results_table"  # The specific table name to look for
+    FILENAME = "gsm_table_v2.json"
 
     # Option A: Load from file if it exists
     if os.path.exists(FILENAME):
@@ -158,13 +175,15 @@ if __name__ == "__main__":
         # Save for next time
         save_results(results, FILENAME)
 
-    # --- Example Usage of Loaded Data ---
-    # Print first 2 problems and their successful configs
+    # --- Verification & Sample Output ---
     count = 0
+    print("\n--- Sample Entries ---")
     for problem, configs in results.items():
         print(f"\nTask: {problem}")
         for cfg in configs:
-            print(f"  - Temp: {cfg['temperature']}, Alpha: {cfg['alpha']}, Passed: {cfg['pass_count']}/16")
+            # Updated print statement to show Strategy Name
+            print(
+                f"  - Strategy: {cfg['strategy']}, Temp: {cfg['temperature']}, Alpha: {cfg['alpha']}, Passed: {cfg['pass_count']}/16")
 
         count += 1
         if count >= 2: break

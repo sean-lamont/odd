@@ -201,7 +201,7 @@ if __name__ == "__main__":
     n_repeats = 8  # <--- How many times to run the full grid
 
     study = optuna.create_study(
-        study_name="batched_orth_gsm",
+        study_name="batched_orth_he",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

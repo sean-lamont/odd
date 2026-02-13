@@ -775,7 +775,7 @@ class DPPGenerator:
 
             if curr_alpha > 0.0:
                 # We only diversify the generated part
-                t0 = time.time()
+                # t0 = time.time()
                 gen_logits_guided, meta = self.strategy.apply(
                     gen_logits,
                     mask_index=mask_index[:, prompt_len:],
@@ -784,7 +784,7 @@ class DPPGenerator:
                     history_qualities=[],
                     protected_tokens=protected_tokens
                 )
-                print(f'time: {time.time() - t0}')
+                # print(f'time: {time.time() - t0}')
                 logits[:, prompt_len:, :] = gen_logits_guided
 
                 # Compute entropy for metadata

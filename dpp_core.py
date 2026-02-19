@@ -301,66 +301,17 @@ class RandomProbeStrategy(DPPStrategy):
         return logits - update, metadata
 
 
-class BatchedOrthogonalProjectionStrategy(DPPStrategy):
-    def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
-        metadata = {"force_map": []}
-
-        logits_in = logits.detach().clone().requires_grad_(True)
-        all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
-
-        total_loss = 0
-        current_basis = [h.detach().flatten() for h in history_vecs]
-
-        for k in range(logits.shape[0]):
-            with torch.no_grad():
-                v_clean = all_norm_vecs[k].flatten()
-                resid = v_clean.clone()
-                for b in current_basis:
-                    proj = torch.dot(resid, b)
-                    resid = resid - proj * b
-
-                norm = torch.norm(resid)
-                if norm > 1e-6:
-                    target_dir = resid / norm
-                else:
-                    target_dir = None
-
-            if current_basis and target_dir is not None:
-                align = torch.dot(all_norm_vecs[k].flatten(), target_dir)
-                loss_k = -align * (self.quality_scale * all_quals[k])
-                total_loss = total_loss + loss_k
-
-            if target_dir is not None:
-                current_basis.append(target_dir)
-
-        if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
-            final_grads = torch.autograd.grad(total_loss, logits_in)[0]
-            with torch.no_grad():
-                final_grads = self._normalize_gradient(final_grads, protected_tokens)
-                update = self.alpha * final_grads
-                metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-                # logits = logits - update
-                logits.sub_(update)
-
-        return logits, metadata
-
-
 # class BatchedOrthogonalProjectionStrategy(DPPStrategy):
 #     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
 #         metadata = {"force_map": []}
 #
-#         active_logits = logits[mask_index].detach().clone().requires_grad_(True)
-#
-#         logits_in = logits.detach().clone()
-#         logits_in[mask_index] = active_logits
-#
+#         logits_in = logits.detach().clone().requires_grad_(True)
 #         all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
 #
 #         total_loss = 0
 #         current_basis = [h.detach().flatten() for h in history_vecs]
 #
 #         for k in range(logits.shape[0]):
-#             # Compute orthogonal direction without tracking gradients
 #             with torch.no_grad():
 #                 v_clean = all_norm_vecs[k].flatten()
 #                 resid = v_clean.clone()
@@ -374,10 +325,7 @@ class BatchedOrthogonalProjectionStrategy(DPPStrategy):
 #                 else:
 #                     target_dir = None
 #
-#             # Attach loss to graph
 #             if current_basis and target_dir is not None:
-#                 # rather than compute the norm, which requires grad prop. through gram-schmidt, we can just find the
-#                 # direction in the forward pass without grad, then optimise the inner product, which yields the same gradient
 #                 align = torch.dot(all_norm_vecs[k].flatten(), target_dir)
 #                 loss_k = -align * (self.quality_scale * all_quals[k])
 #                 total_loss = total_loss + loss_k
@@ -386,19 +334,71 @@ class BatchedOrthogonalProjectionStrategy(DPPStrategy):
 #                 current_basis.append(target_dir)
 #
 #         if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
-#             active_grads = torch.autograd.grad(total_loss, active_logits)[0]
-#
+#             final_grads = torch.autograd.grad(total_loss, logits_in)[0]
 #             with torch.no_grad():
-#                 final_grads = torch.zeros_like(logits)
-#                 final_grads[mask_index] = active_grads
 #                 final_grads = self._normalize_gradient(final_grads, protected_tokens)
 #                 update = self.alpha * final_grads
 #                 metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-#
-#                 # modify in-place to save VRAM
+#                 # logits = logits - update
 #                 logits.sub_(update)
 #
 #         return logits, metadata
+
+
+class BatchedOrthogonalProjectionStrategy(DPPStrategy):
+    def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
+        metadata = {"force_map": []}
+
+        active_logits = logits[mask_index].detach().clone().requires_grad_(True)
+
+        logits_in = logits.detach().clone()
+        logits_in[mask_index] = active_logits
+
+        all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
+
+        total_loss = 0
+        current_basis = [h.detach().flatten() for h in history_vecs]
+
+        for k in range(logits.shape[0]):
+            # Compute orthogonal direction without tracking gradients
+            with torch.no_grad():
+                v_clean = all_norm_vecs[k].flatten()
+                resid = v_clean.clone()
+                for b in current_basis:
+                    proj = torch.dot(resid, b)
+                    resid = resid - proj * b
+
+                norm = torch.norm(resid)
+                if norm > 1e-6:
+                    target_dir = resid / norm
+                else:
+                    target_dir = None
+
+            # Attach loss to graph
+            if current_basis and target_dir is not None:
+                # rather than compute the norm, which requires grad prop. through gram-schmidt, we can just find the
+                # direction in the forward pass without grad, then optimise the inner product, which yields the same gradient
+                align = torch.dot(all_norm_vecs[k].flatten(), target_dir)
+                loss_k = -align * (self.quality_scale * all_quals[k])
+                total_loss = total_loss + loss_k
+
+            if target_dir is not None:
+                current_basis.append(target_dir)
+
+        if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
+            active_grads = torch.autograd.grad(total_loss, active_logits)[0]
+
+            with torch.no_grad():
+                final_grads = torch.zeros_like(logits)
+                final_grads[mask_index] = active_grads
+                final_grads = self._normalize_gradient(final_grads, protected_tokens)
+                update = self.alpha * final_grads
+                metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
+
+                # modify in-place to save VRAM
+                logits.sub_(update)
+
+        return logits, metadata
 
 
 # old approach:
@@ -432,26 +432,15 @@ class BatchedOrthogonalProjectionStrategy(DPPStrategy):
 #
 #             if norm > 1e-6:
 #                 target_dir = v_ortho / norm
-#                 # Alignment: We want to move 'target_vec' towards 'target_dir'
-#                 # target_vec is ATTACHED to the graph. target_dir is DETACHED.
 #                 return torch.dot(target_vec.flatten(), target_dir.detach())
 #             return 0.0
 #
 #         # Loop over batch to define relationships
 #         for k in range(logits.shape[0]):
-#             # 1. Calculate Loss for Item k
-#             # It repels against 'current_basis' (History + Items 0...k-1)
 #             if current_basis:
-#                 # We use the ATTACHED vector for the dot product so gradients flow
 #                 align = get_alignment_loss(all_norm_vecs[k], current_basis)
-#
-#                 # Weighted by quality
 #                 loss_k = -align * (self.quality_scale * all_quals[k])
 #                 total_loss = total_loss + loss_k
-#
-#             # 2. Update Basis for Item k+1
-#             # We append the detached feature of Item k to the basis
-#             # This ensures Item k+1 repels against Item k's current position
 #             with torch.no_grad():
 #                 v_clean = detached_features[k].flatten()
 #                 resid = v_clean.clone()
@@ -463,47 +452,15 @@ class BatchedOrthogonalProjectionStrategy(DPPStrategy):
 #                 if norm > 1e-6:
 #                     current_basis.append(resid / norm)
 #
-#         # 4. ONE-SHOT BACKWARD PASS
-#         # This computes gradients for [Item 0, Item 1, ... Item N] all at once.
 #         if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
 #             final_grads = torch.autograd.grad(total_loss, logits_in)[0]
 #
 #             final_grads = self._normalize_gradient(final_grads, protected_tokens)
 #
-#             # Apply update
 #             update = self.alpha * final_grads
 #             metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-#             # return logits - update, metadata
 #             logits = logits - update
-#
-#         # --- PROFILING END ---
-#         if is_cuda:
-#             torch.cuda.synchronize()
-#             end_mem = torch.cuda.memory_allocated()
-#
-#             # Calculate overheads
-#             mem_overhead_bytes = end_mem - base_mem
-#             mem_overhead_mb = mem_overhead_bytes / (1024 ** 2)
-#
-#             # Avoid division by zero if base_mem is 0
-#             overhead_pct = (mem_overhead_bytes / base_mem * 100) if base_mem > 0 else 0.0
-#         else:
-#             mem_overhead_mb = 0.0
-#             overhead_pct = 0.0
-#
-#         end_time = time.time()
-#
-#         metadata["profiling"] = {
-#             "execution_time_s": end_time - start_time,
-#             "memory_overhead_mb": mem_overhead_mb,
-#             "memory_overhead_pct": overhead_pct
-#         }
-#         print (metadata['profiling'])
-#                 # ---------------------
-#
-#
 #         return logits, metadata
-#
 
 class OrthogonalProjectionStrategy(DPPStrategy):
     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):

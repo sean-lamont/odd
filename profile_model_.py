@@ -1,15 +1,18 @@
 import gc
-import hydra
 import numpy as np
 import os
 import sys
 import time
 import torch
-from omegaconf import DictConfig
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 from types import SimpleNamespace
+from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
+# Ensure dpp_core can be imported
+try:
+    from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
+except ImportError:
+    print("Error: Could not import 'dpp_core'. Make sure it is in the same directory.")
+    sys.exit(1)
 
 
 def load_model(cfg):
@@ -43,17 +46,16 @@ def load_model(cfg):
 
     return model, tokenizer, embedding_matrix, mask_token_id
 
+
 # -----------------------------------------------------------------------------
 # 2. PROFILING CONFIGURATION
 # -----------------------------------------------------------------------------
 
-# Define the base Model Config (Mocking Hydra's DictConfig)
-# CHANGE 'name' to the actual model you want to test (e.g., 'mistralai/Mistral-7B-v0.1')
 BASE_CONFIG = SimpleNamespace(
     model=SimpleNamespace(
-        name="GSAI-ML/LLaDA-8B-Instruct",  # Replace with your 4-bit compatible model
+        name="GSAI-ML/LLaDA-8B-Instruct",
         load_in_4bit=True,
-        mask_token_id=126336  # Default for GPT2, change for others
+        mask_token_id=126336
     ),
     strategy=SimpleNamespace(
         target="logits",
@@ -62,19 +64,14 @@ BASE_CONFIG = SimpleNamespace(
     )
 )
 
-# Define the scenarios to profile
-# (Label, Batch Size, Steps, Gen Length)
-SCENARIOS = [
-    ("Baseline (Batch 1)", 1, 10, 32),
-    ("Small Batch (4)", 4, 10, 32),
-    ("Medium Batch (8)", 8, 10, 32),
-    (" Batch (16)", 16, 10, 32),
-    (" Batch (32)", 32, 10, 32),
-    (" Batch (64)", 64, 10, 32),
-    ("Long Gen (64)", 32, 10, 64),
-    ("Long Gen (128)", 32, 10, 128),
-    ("High Steps (50)", 4, 50, 32),
-]
+batch_sizes = [1, 2, 4, 8, 16, 32, 64]#, 128, 256]
+steps = [16, 32, 64, 128]
+length = [16, 32, 64, 128]#, 256, 512]
+
+batch_sizes.reverse()
+
+# Generate scenarios
+SCENARIOS = [(f'B:{b} S:{s} L:{l}', b, s, l) for b in batch_sizes for s in steps for l in length if s <= l]
 
 PROMPT = "The quick brown fox jumps over the lazy dog"
 
@@ -84,15 +81,21 @@ PROMPT = "The quick brown fox jumps over the lazy dog"
 # -----------------------------------------------------------------------------
 
 def run_single_pass(generator, batch, steps, length, prompt):
-    """Runs a generation pass and returns wall-clock time in seconds."""
-    # Garbage collection to ensure fair memory usage
+    """Runs a generation pass and returns wall-clock time (s) and peak VRAM (MB)."""
     gc.collect()
-    torch.cuda.empty_cache()
-    torch.cuda.synchronize()
+
+    is_cuda = torch.cuda.is_available()
+    if is_cuda:
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+        torch.cuda.reset_peak_memory_stats()
+        initial_mem = torch.cuda.memory_allocated()
+    else:
+        initial_mem = 0
 
     start_t = time.perf_counter()
 
-    # We ignore the output samples/history, we just want execution time
+    # Generate
     _ = generator.generate(
         prompt=prompt,
         batch_size=batch,
@@ -101,8 +104,16 @@ def run_single_pass(generator, batch, steps, length, prompt):
         temperature=1.0
     )
 
-    torch.cuda.synchronize()
-    return time.perf_counter() - start_t
+    if is_cuda:
+        torch.cuda.synchronize()
+        max_mem = torch.cuda.max_memory_allocated()
+        mem_used_mb = (max_mem - initial_mem) / (1024 ** 2)
+    else:
+        mem_used_mb = 0.0
+
+    end_t = time.perf_counter()
+
+    return end_t - start_t, mem_used_mb
 
 
 def main():
@@ -110,7 +121,7 @@ def main():
     print(f"Model: {BASE_CONFIG.model.name}")
     print(f"4-Bit Quantization: {BASE_CONFIG.model.load_in_4bit}")
 
-    # 1. Load Model (Once)
+    # 1. Load Model
     model, tokenizer, embedding_matrix, mask_token_id = load_model(BASE_CONFIG)
 
     # 2. Setup Feature Extractor
@@ -121,52 +132,56 @@ def main():
         top_k=BASE_CONFIG.strategy.top_k
     )
 
-    print("\n" + "=" * 85)
+    print("\n" + "=" * 115)
     print(
-        f"{'Scenario':<20} | {'B':<3} | {'Stp':<3} | {'Len':<4} | {'Base(s)':<8} | {'Strat(s)':<8} | {'Overhead':<10}")
-    print("=" * 85)
+        f"{'Scenario':<18} | {'B':<3} | {'Stp':<3} | {'Len':<4} | {'Base(s)':<7} | {'Strat(s)':<8} | {'T_OH':<7} | {'Base(MB)':<8} | {'Strat(MB)':<9} | {'Mem_OH':<8}")
+    print("=" * 115)
 
     for label, batch, steps, length in SCENARIOS:
         try:
-            # --- A. RUN BASELINE (No Overhead) ---
-            # Strategy: Baseline (alpha=0)
+            # --- A. RUN BASELINE ---
             strat_base = get_strategy("baseline", 0.0, 0.0, feature_extractor)
             gen_base = DPPGenerator(model, tokenizer, strat_base, mask_token_id)
 
-            # Warmup run (short) for the first iteration only
-            if batch == 1 and steps == 10:
+            # Warmup run (for CUDA graph compilation / allocations)
+            if SCENARIOS.index((label, batch, steps, length)) == 0:
                 run_single_pass(gen_base, 1, 2, 5, "warmup")
 
-            time_base = run_single_pass(gen_base, batch, steps, length, PROMPT)
+            time_base, mem_base = run_single_pass(gen_base, batch, steps, length, PROMPT)
 
-            # --- B. RUN STRATEGY (Orthogonal Projection) ---
-            # Strategy: Orthogonal Projection (alpha=0.5)
-            strat_ortho = get_strategy("orthogonal_projection", 0.5, 1.0, feature_extractor)
+            # --- B. RUN STRATEGY ---
+            strat_ortho = get_strategy("batched_orth", 64, 1.0, feature_extractor)
             gen_ortho = DPPGenerator(model, tokenizer, strat_ortho, mask_token_id)
 
-            time_strat = run_single_pass(gen_ortho, batch, steps, length, PROMPT)
+            time_strat, mem_strat = run_single_pass(gen_ortho, batch, steps, length, PROMPT)
 
             # --- C. CALCULATE OVERHEAD ---
-            overhead_s = time_strat - time_base
-            overhead_pct = (overhead_s / time_base) * 100.0
+            time_overhead_s = time_strat - time_base
+            time_overhead_pct = (time_overhead_s / time_base) * 100.0 if time_base > 0 else 0.0
 
-            # Color coding
-            if overhead_pct < 5.0:
+            mem_overhead_mb = mem_strat - mem_base
+
+            # Color coding for Time Overhead
+            if time_overhead_pct < 5.0:
                 color = "\033[92m"  # Green
-            elif overhead_pct < 15.0:
+            elif time_overhead_pct < 15.0:
                 color = "\033[93m"  # Yellow
             else:
                 color = "\033[91m"  # Red
             reset = "\033[0m"
 
             print(
-                f"{label:<20} | {batch:<3} | {steps:<3} | {length:<4} | {time_base:<8.4f} | {time_strat:<8.4f} | {color}+{overhead_pct:.1f}%{reset}")
+                f"{label:<18} | {batch:<3} | {steps:<3} | {length:<4} | "
+                f"{time_base:<7.2f} | {time_strat:<8.2f} | {color}+{time_overhead_pct:.1f}%{reset} | "
+                f"{mem_base:<8.0f} | {mem_strat:<9.0f} | {mem_overhead_mb:<8.0f}"
+            )
 
         except RuntimeError as e:
             if "out of memory" in str(e).lower():
-                print(f"{label:<20} | {batch:<3} | OOM ERROR (Reduce Batch Size)")
+                print(f"{label:<18} | {batch:<3} | OOM ERROR (Reduce Batch/Length)")
+                torch.cuda.empty_cache()
             else:
-                print(f"{label:<20} | ERROR: {e}")
+                print(f"{label:<18} | ERROR: {e}")
 
 
 if __name__ == "__main__":

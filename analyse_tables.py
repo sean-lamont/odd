@@ -158,9 +158,9 @@ if __name__ == "__main__":
 
     # --- CONFIGURATION ---
     ENTITY = "tactic-zero"  # Update with your W&B Entity
-    PROJECT = "gsm8k"  # Update with your W&B Project Name
+    PROJECT = "humaneval"  # Update with your W&B Project Name
     TABLE_NAME = "results_table"  # The specific table name to look for
-    FILENAME = "gsm_table_v2.json"
+    FILENAME = "he_table_batched.json"
 
     # Option A: Load from file if it exists
     if os.path.exists(FILENAME):

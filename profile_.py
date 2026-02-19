@@ -8,7 +8,7 @@ import os
 sys.path.append(os.getcwd())
 
 try:
-    from dpp_core import FeatureExtractor, OrthogonalProjectionStrategy
+    from dpp_core import FeatureExtractor, OrthogonalProjectionStrategy, BatchedOrthogonalProjectionStrategy
 except ImportError:
     print("Error: Could not import 'dpp_core.py'. Make sure it is in the same directory.")
     sys.exit(1)
@@ -18,7 +18,7 @@ except ImportError:
 # Test Harness
 # -----------------------------------------------------------------------------
 
-def run_benchmark(batch_sizes, seq_lengths, vocab_size=32000, generation_steps=[10, 50, 100]):
+def run_benchmark(batch_sizes, seq_lengths, vocab_size=126464, generation_steps=[10, 50, 100]):
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Running Benchmark on: {device.upper()}")
     print("-" * 90)
@@ -30,7 +30,7 @@ def run_benchmark(batch_sizes, seq_lengths, vocab_size=32000, generation_steps=[
 
     # Initialize Strategy ONCE (stateless, so reusable)
     feature_extractor = FeatureExtractor(pooling_method='max', use_confidence_weighting=True)
-    strategy = OrthogonalProjectionStrategy(alpha=0.5, quality_scale=1.0, feature_extractor=feature_extractor)
+    strategy = BatchedOrthogonalProjectionStrategy(alpha=64, quality_scale=1.0, feature_extractor=feature_extractor)
 
     for B in batch_sizes:
         for S in seq_lengths:
@@ -44,9 +44,8 @@ def run_benchmark(batch_sizes, seq_lengths, vocab_size=32000, generation_steps=[
                 # Protected tokens (EOS, PAD)
                 protected = torch.tensor([0, 1, 2], device=device)
 
-                # Mock History (Simulate realistic scenario: 5 previous vectors in history)
-                history_vecs = [torch.randn(vocab_size, device=device) for _ in range(5)]
-                history_quals = [1.0] * 5
+                history_vecs = []
+                history_quals = []
 
                 # 2. Warmup (Run once to compile kernels/allocate)
                 strategy.apply(logits, mask, x, history_vecs, history_quals, protected)
@@ -98,6 +97,7 @@ def run_benchmark(batch_sizes, seq_lengths, vocab_size=32000, generation_steps=[
 
             except RuntimeError as e:
                 print(f"{B:<6} | {S:<6} | {'OOM / ERROR':<15} | {'-':<10} | {str(e)[:30]}...")
+                print (e)
                 torch.cuda.empty_cache()
 
     return results
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     # Warning: Large Batch * SeqLen * VocabSize (32k) consumes massive VRAM.
     # Adjust mostly Batch Size.
     BATCH_SIZES = [2, 4, 8, 16, 32, 64, 128, 256]
-    SEQ_LENGTHS = [128, 512, 1024]
+    SEQ_LENGTHS = [32, 64, 128, 512, 1024]
 
     # Run
     stats = run_benchmark(BATCH_SIZES, SEQ_LENGTHS)

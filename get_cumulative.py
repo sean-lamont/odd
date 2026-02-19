@@ -21,14 +21,14 @@ def calculate_solved_combined(json_path):
     total_problems = set()
 
     # Filter constraints
-    ALLOWED_STRATEGIES = ["baseline", "orthogonal_projection"]
+    ALLOWED_STRATEGIES = ["baseline", "batched_orth"]
 
     for problem_id, runs_list in data.items():
         total_problems.add(problem_id)
 
         for run in runs_list:
             # --- FILTER LOGIC ---
-            run_strategy = run.get('strategy', 'orthogonal_projection')
+            run_strategy = run.get('strategy', 'batched_orth')
             if run_strategy not in ALLOWED_STRATEGIES:
                 continue
             # --------------------
@@ -113,4 +113,4 @@ def calculate_solved_combined(json_path):
 
 
 if __name__ == "__main__":
-    calculate_solved_combined('gsm_table_v2.json')
+    calculate_solved_combined('he_table_batched.json')

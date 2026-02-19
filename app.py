@@ -268,7 +268,7 @@ if __name__ == '__main__':
 
         st.divider()
         st.subheader("DPP Controls")
-        strategy_name = st.selectbox("Strategy", ["sequential_subtraction", "gram_schmidt", "orthogonal_projection", "joint", "random_probe"])
+        strategy_name = st.selectbox("Strategy", ["sequential_subtraction", "gram_schmidt", "orthogonal_projection", "joint", "random_probe", "batched_orth"])
         # quality_scale = st.slider("Quality Scale", 0.0, 10.0, 1.0)
         # alpha = st.slider("Alpha (Repulsion)", 0.0, 100.0, 5.0)
 

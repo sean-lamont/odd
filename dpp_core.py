@@ -816,7 +816,7 @@ class DPPGenerator:
             mask_index = (x == self.mask_token_id)
 
             with torch.no_grad():
-                # todo should just deconstruct and reconstruct to loop n times with model for inner_batch_size
+                # todo could loop n times with model for inner_batch_size if we want larger batches beyond GPU capacity
                 # ---
                 logits = self.model(x, attention_mask=attention_mask).logits
                 # ---

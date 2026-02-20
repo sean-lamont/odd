@@ -286,7 +286,7 @@
 
 import os
 
-# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 import gc
 import csv
@@ -329,7 +329,8 @@ def load_model(cfg):
         cfg.model.name,
         trust_remote_code=True,
         device_map="auto",
-        quantization_config=bnb_config
+        quantization_config=bnb_config,
+        dtype=torch.bfloat16
     )
 
     model.eval()
@@ -476,7 +477,7 @@ def main():
                         label = f"{ds_name[:3]}_{prob_idx}_B{b}"
                         SCENARIOS.append((label, ds_name, prob_idx, p_len, prompt_text, b, s, l))
 
-    csv_filename = "profiler_results_no_expand.csv"
+    csv_filename = "profiler_results_expand.csv"
 
     with open(csv_filename, mode='w', newline='') as csv_file:
         csv_writer = csv.writer(csv_file)

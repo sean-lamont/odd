@@ -181,7 +181,7 @@ def generate_combined_latex_table(gsm_csv, he_csv, strategy_col, temp_col,
 if __name__ == "__main__":
     generate_combined_latex_table(
         gsm_csv='gsm8k.csv',
-        he_csv='human_eval.csv',
+        he_csv='humaneval.csv',
         strategy_col='strategy',
         temp_col='temperature',
         target_strategy='batched_orth',  # Your "Our Approach" Strategy Name

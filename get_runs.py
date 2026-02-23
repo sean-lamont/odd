@@ -75,5 +75,5 @@ def export_project_data(project_path, output_csv):
 # Execute for both projects
 # ==========================================
 if __name__ == "__main__":
-    # export_project_data("tactic-zero/humaneval", "human_eval.csv")
-    export_project_data("tactic-zero/gsm8k", "gsm8k.csv")
+    # export_project_data("tactic-zero/gsm8k", "gsm8k.csv")
+    export_project_data("tactic-zero/humaneval", "humaneval.csv")

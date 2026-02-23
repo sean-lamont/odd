@@ -5,9 +5,6 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Tuple
 import time
 
-
-# function to print time
-
 class FeatureExtractor:
     def __init__(self, embedding_matrix: Optional[torch.Tensor] = None,
                  kernel_target: str = 'logits',
@@ -300,51 +297,6 @@ class RandomProbeStrategy(DPPStrategy):
         metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
         return logits - update, metadata
 
-
-# class BatchedOrthogonalProjectionStrategy(DPPStrategy):
-#     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
-#         metadata = {"force_map": []}
-#
-#         logits_in = logits.detach().clone().requires_grad_(True)
-#         all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
-#
-#         total_loss = 0
-#         current_basis = [h.detach().flatten() for h in history_vecs]
-#
-#         for k in range(logits.shape[0]):
-#             with torch.no_grad():
-#                 v_clean = all_norm_vecs[k].flatten()
-#                 resid = v_clean.clone()
-#                 for b in current_basis:
-#                     proj = torch.dot(resid, b)
-#                     resid = resid - proj * b
-#
-#                 norm = torch.norm(resid)
-#                 if norm > 1e-6:
-#                     target_dir = resid / norm
-#                 else:
-#                     target_dir = None
-#
-#             if current_basis and target_dir is not None:
-#                 align = torch.dot(all_norm_vecs[k].flatten(), target_dir)
-#                 loss_k = -align * (self.quality_scale * all_quals[k])
-#                 total_loss = total_loss + loss_k
-#
-#             if target_dir is not None:
-#                 current_basis.append(target_dir)
-#
-#         if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
-#             final_grads = torch.autograd.grad(total_loss, logits_in)[0]
-#             with torch.no_grad():
-#                 final_grads = self._normalize_gradient(final_grads, protected_tokens)
-#                 update = self.alpha * final_grads
-#                 metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-#                 # logits = logits - update
-#                 logits.sub_(update)
-#
-#         return logits, metadata
-
-
 class BatchedOrthogonalProjectionStrategy(DPPStrategy):
     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
         metadata = {"force_map": []}
@@ -401,82 +353,15 @@ class BatchedOrthogonalProjectionStrategy(DPPStrategy):
         return logits, metadata
 
 
-# old approach:
-# class BatchedOrthogonalProjectionStrategy(DPPStrategy):
-#     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
-#         metadata = {"force_map": []}
-#
-#         logits_in = logits.detach().clone().requires_grad_(True)
-#
-#         all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
-#
-#         total_loss = 0
-#
-#         current_basis = [h.detach().flatten() for h in history_vecs]
-#
-#         detached_features = all_norm_vecs.detach()
-#
-#         def get_alignment_loss(target_vec, basis_list):
-#             if not basis_list:
-#                 return 0.0
-#
-#             # Project target_vec against everything in basis_list
-#             resid = target_vec.clone()  # Clone to keep graph safe
-#             for b in basis_list:
-#                 # b is detached, so this loop is just math
-#                 proj = torch.dot(resid.flatten(), b)
-#                 resid = resid - proj * b
-#
-#             v_ortho = resid
-#             norm = torch.norm(v_ortho)
-#
-#             if norm > 1e-6:
-#                 target_dir = v_ortho / norm
-#                 return torch.dot(target_vec.flatten(), target_dir.detach())
-#             return 0.0
-#
-#         # Loop over batch to define relationships
-#         for k in range(logits.shape[0]):
-#             if current_basis:
-#                 align = get_alignment_loss(all_norm_vecs[k], current_basis)
-#                 loss_k = -align * (self.quality_scale * all_quals[k])
-#                 total_loss = total_loss + loss_k
-#             with torch.no_grad():
-#                 v_clean = detached_features[k].flatten()
-#                 resid = v_clean.clone()
-#                 for b in current_basis:
-#                     proj = torch.dot(resid, b)
-#                     resid = resid - proj * b
-#
-#                 norm = torch.norm(resid)
-#                 if norm > 1e-6:
-#                     current_basis.append(resid / norm)
-#
-#         if isinstance(total_loss, torch.Tensor) and total_loss.requires_grad:
-#             final_grads = torch.autograd.grad(total_loss, logits_in)[0]
-#
-#             final_grads = self._normalize_gradient(final_grads, protected_tokens)
-#
-#             update = self.alpha * final_grads
-#             metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-#             logits = logits - update
-#         return logits, metadata
-
 class OrthogonalProjectionStrategy(DPPStrategy):
     def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
         metadata = {"force_map": []}
 
-        # 1. Output Container (Detached from graph)
-        # We modify this in-place.
         current_logits = logits.clone().detach()
         final_grads = torch.zeros_like(logits)
 
-        # 2. Initialize Basis (Strictly Detached)
-        # We use a list of detached, flattened tensors.
         basis_vectors = [h.detach().flatten() for h in history_vecs]
 
-        # Helper: Modified Gram-Schmidt (Exact match to original logic)
-        # Using a python loop is safer for numerical stability than matrix-ops here.
         def project_resid_mgs(target, basis_list):
             resid = target.clone()
             for b in basis_list:
@@ -485,56 +370,35 @@ class OrthogonalProjectionStrategy(DPPStrategy):
                 resid = resid - proj * b
             return resid
 
-        # 3. Sequential Loop
         for k in range(logits.shape[0]):
-
-            # --- PHASE 1: Gradient Calculation (Only if Basis exists) ---
-            grad_k = None
-
             if basis_vectors:
-                # A. Create Tiny Graph (Leaf Node)
                 logit_k_leaf = logits[k].unsqueeze(0).detach().clone().requires_grad_(True)
 
-                # B. Extract Feature (Attached to Leaf)
                 norm_vec_k, qual_k = self.feature_extractor.extract(
                     logit_k_leaf,
                     mask_index[k].unsqueeze(0),
                     x[k].unsqueeze(0)
                 )
 
-                # C. Define Target (Detached Constant)
-                # We simply detach norm_vec_k to calculate where we want to go.
-                # This saves an extra 'extract' call compared to previous attempts.
                 v_raw_detached = norm_vec_k.detach().flatten()
                 v_ortho = project_resid_mgs(v_raw_detached, basis_vectors)
 
                 target_norm = torch.norm(v_ortho)
 
-                # D. Backward Pass
                 if target_norm > 1e-6:
                     target_dir = v_ortho / target_norm
 
-                    # Alignment between Attached Vector and Detached Target
-                    # The graph is: logit_k_leaf -> norm_vec_k -> dot -> loss
                     alignment = torch.dot(norm_vec_k.flatten(), target_dir)
                     loss = -alignment * (self.quality_scale * qual_k)
 
                     g = torch.autograd.grad(loss, logit_k_leaf)[0]
-                    # Store result
                     final_grads[k] = self._normalize_gradient(g, protected_tokens).squeeze(0)
 
-                    # Aggressive cleanup to help GC
                     del g, loss, logit_k_leaf, norm_vec_k
 
-            # --- PHASE 2: Update & Basis Maintenance ---
-
-            # A. Apply Update
             if k > 0 or history_vecs:
-                # If we calculated a grad, use it. Else grad is 0.
                 current_logits[k] -= (self.alpha * final_grads[k])
 
-            # B. Add to Basis (No Grad)
-            # We must re-extract because the logits changed.
             with torch.no_grad():
                 new_vec, _ = self.feature_extractor.extract(
                     current_logits[k].unsqueeze(0),
@@ -543,165 +407,19 @@ class OrthogonalProjectionStrategy(DPPStrategy):
                 )
                 new_vec_flat = new_vec.flatten()
 
-                # Orthogonalize against history so we don't store redundant info
                 v_final = project_resid_mgs(new_vec_flat, basis_vectors)
                 norm = torch.norm(v_final)
 
                 if norm > 1e-6:
                     basis_vectors.append(v_final / norm)
 
-        # Final Update Calculation
         update = self.alpha * final_grads
         metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
 
         return logits - update, metadata
 
-    # def apply(self, logits, mask_index, x, history_vecs, history_qualities, protected_tokens=None):
-    #     metadata = {"force_map": []}
-    #
-    #     current_logits = logits.clone().detach()
-    #     final_grads = torch.zeros_like(logits)
-    #
-    #     basis_vectors = []
-    #
-    #     def project_resid(target, basis):
-    #         # resid = target.clone()
-    #         for b in basis:
-    #             # b is already normalized
-    #             proj = torch.dot(target.view(-1), b.view(-1))
-    #             target = target - proj * b
-    #         return target
-    #
-    #     # Pre-process history into the basis
-    #     if history_vecs:
-    #         for h in history_vecs:
-    #             v = project_resid(h, basis_vectors)
-    #             norm = torch.norm(v)
-    #             if norm > 1e-6:
-    #                 basis_vectors.append(v / norm)
-    #
-    #     # 2. Sequential Loop (Standard "Fast" Backprop)
-    #     for k in range(logits.shape[0]):
-    #         # Isolate the graph!
-    #         # Creating a leaf variable here ensures backprop is O(1) for this step.
-    #         logit_k = logits[k].unsqueeze(0).detach().clone().requires_grad_(True)
-    #
-    #         # Extract features (Small forward pass)
-    #         norm_vec_k, qual_k = self.feature_extractor.extract(
-    #             logit_k, mask_index[k].unsqueeze(0), x[k].unsqueeze(0)
-    #         )
-    #
-    #         # basis_matrix = torch.stack(basis_vectors) if basis_vectors else torch.empty(0)
-    #
-    #         # Only compute gradient if there is a basis to repel against
-    #         if basis_vectors:
-    #             # Project current vector against the RUNNING basis
-    #             v_target = norm_vec_k.detach().clone()
-    #             # v_target = project_resid(v_target, basis_vectors)
-    #             v_target = project_resid(v_target, basis_vectors).detach()
-    #
-    #             # v_target = vectorized_projection(norm_vec_k.detach().clone(), basis_matrix)
-    #
-    #             target_norm = torch.norm(v_target)
-    #             if target_norm > 1e-6:
-    #                 target_dir = v_target / target_norm
-    #
-    #                 # Compute Alignment
-    #                 alignment = torch.dot(norm_vec_k.view(-1), target_dir.view(-1))
-    #                 loss = -alignment * (self.quality_scale * qual_k)
-    #
-    #                 if loss.requires_grad:
-    #                     # Fast local backprop
-    #                     grad_k = torch.autograd.grad(loss, logit_k)[0]
-    #
-    #                     # Squeeze ensures we match the shape for assignment
-    #                     final_grads[k] = self._normalize_gradient(grad_k, protected_tokens).squeeze(0)
-    #
-    #         # Apply Update
-    #         if k > 0 or history_vecs:
-    #             current_logits[k] -= (self.alpha * final_grads[k])
-    #
-    #         with torch.no_grad():
-    #             new_vec, _ = self.feature_extractor.extract(
-    #                 current_logits[k].unsqueeze(0),
-    #                 mask_index[k].unsqueeze(0),
-    #                 x[k].unsqueeze(0)
-    #             )
-    #             # Orthogonalize the new result against the running basis
-    #             v_new = project_resid(new_vec.detach(), basis_vectors)
-    #             norm = torch.norm(v_new)
-    #             if norm > 1e-6:
-    #                 # basis_vectors.append(v_new / norm)
-    #                 basis_vectors.append((v_new / norm).detach())
-    #
-    #         del logit_k, norm_vec_k,  v_new
-    #
-    #     update = self.alpha * final_grads
-    #     metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-    #     return logits - update, metadata
-
-    # def apply(self, logits: torch.Tensor, mask_index: torch.Tensor, x: torch.Tensor,
-    #           history_vecs: List[torch.Tensor], history_qualities: List[float],
-    #           protected_tokens: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Dict]:
-    #
-    #     metadata = {"entropy_map": [], "force_map": []}
-    #     current_logits = logits.clone().detach()
-    #     final_grads = torch.zeros_like(logits)
-    #
-    #     local_history_vecs = list(history_vecs)
-    #
-    #     for k in range(logits.shape[0]):
-    #         logit_k = logits[k].unsqueeze(0).detach().clone().requires_grad_(True)
-    #         norm_vec_k, qual_k = self.feature_extractor.extract(
-    #             logit_k, mask_index[k].unsqueeze(0), x[k].unsqueeze(0)
-    #         )
-    #
-    #         if k > 0 or local_history_vecs:
-    #             # Build ortho basis
-    #             ortho_basis = []
-    #             for q in local_history_vecs:
-    #                 u = q.clone()
-    #                 for b in ortho_basis:
-    #                     u = u - torch.dot(u.view(-1), b.view(-1)) * b
-    #                 u_norm = torch.norm(u)
-    #                 if u_norm > 1e-6:
-    #                     ortho_basis.append(u / u_norm)
-    #
-    #             v_target = norm_vec_k.detach().clone()
-    #             for b in ortho_basis:
-    #                 proj = torch.dot(v_target.view(-1), b.view(-1)) * b
-    #                 v_target = v_target - proj
-    #
-    #             target_norm = torch.norm(v_target)
-    #             if target_norm > 1e-6:
-    #                 target_dir = v_target / target_norm
-    #                 alignment = torch.dot(norm_vec_k.view(-1), target_dir.view(-1))
-    #                 # todo try with (self.quality_scale + qual_k)
-    #                 loss = -alignment * (self.quality_scale * qual_k)
-    #                 # loss = -alignment * (self.quality_scale * qual_k.detach())
-    #
-    #                 if loss.requires_grad:
-    #                     raw_grads = torch.autograd.grad(loss, logit_k)[0]
-    #                     final_grads[k] = self._normalize_gradient(raw_grads, protected_tokens).squeeze(0)
-    #
-    #         if k > 0 or local_history_vecs:
-    #             current_logits[k] -= (self.alpha * final_grads[k])
-    #
-    #         with torch.no_grad():
-    #             norm_vec_new, _ = self.feature_extractor.extract(
-    #                 current_logits[k].unsqueeze(0),
-    #                 mask_index[k].unsqueeze(0),
-    #                 x[k].unsqueeze(0)
-    #             )
-    #             local_history_vecs.append(norm_vec_new)
-    #
-    #     update = self.alpha * final_grads
-    #     metadata["force_map"] = torch.norm(update, p=2, dim=-1).detach().float().cpu()
-    #     return logits - update, metadata
-
 
 class JointStrategy(DPPStrategy):
-
     def apply(self, logits: torch.Tensor, mask_index: torch.Tensor, x: torch.Tensor,
               history_vecs: List[torch.Tensor], history_qualities: List[float],
               protected_tokens: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, Dict]:
@@ -717,10 +435,6 @@ class JointStrategy(DPPStrategy):
         q_mat = torch.outer(quals, quals)
         # todo try with (self.quality_scale + q_mat)
         L = K * (1 + self.quality_scale * q_mat)
-
-        # quals_detached = quals.detach()
-        # q_mat = torch.outer(quals_detached, quals_detached)
-        # L = K * (self.quality_scale * q_mat.detach())
 
         loss = -(torch.logdet(L + jitter * identity) - torch.logdet(L + identity + jitter * identity))
 
@@ -818,10 +532,7 @@ class DPPGenerator:
 
             with torch.no_grad():
                 # todo could loop n times with model for inner_batch_size if we want larger batches beyond GPU capacity
-                # ---
                 logits = self.model(x, attention_mask=attention_mask).logits
-                # ---
-
                 gen_logits = logits[:, prompt_len:, :].clone()
 
             # Decay alpha
@@ -836,27 +547,25 @@ class DPPGenerator:
                 "force_map": torch.zeros(batch_size, gen_length)
             }
 
-            # 1. Capture Original State (Before DPP)
-            with torch.no_grad():
-                probs_original = torch.softmax(gen_logits, dim=-1)
-                top1_original = torch.argmax(probs_original, dim=-1)
+            # todo only for self.enable_logging
+            if self.enable_logging:
+                with torch.no_grad():
+                    probs_original = torch.softmax(gen_logits, dim=-1)
+                    top1_original = torch.argmax(probs_original, dim=-1)
 
-                # Get Top K of Original Distribution for logging
-                k_val = 5
-                topk_probs_orig, topk_indices_orig = torch.topk(probs_original, k=k_val, dim=-1)
+                    # Get Top K of Original Distribution for logging
+                    k_val = 5
+                    topk_probs_orig, topk_indices_orig = torch.topk(probs_original, k=k_val, dim=-1)
 
             if curr_alpha > 0.0:
-                # We only diversify the generated part
-                # t0 = time.time()
                 gen_logits_guided, meta = self.strategy.apply(
                     gen_logits,
                     mask_index=mask_index[:, prompt_len:],
                     x=x[:, prompt_len:],
-                    history_vecs=[],  # Reset history for each step as per original implementation
+                    history_vecs=[],
                     history_qualities=[],
                     protected_tokens=protected_tokens
                 )
-                # print(f'time: {time.time() - t0}')
                 logits[:, prompt_len:, :] = gen_logits_guided
 
                 # Compute entropy for metadata
@@ -865,31 +574,23 @@ class DPPGenerator:
                 if "force_map" in meta:
                     metadata["force_map"] = meta["force_map"]
 
-            self.strategy.alpha = original_alpha  # Restore
+            self.strategy.alpha = original_alpha
 
-            # 2. Capture Final State (After DPP)
             with torch.no_grad():
-                gen_logits_final = logits[:, prompt_len:, :]
-                probs_final = torch.softmax(gen_logits_final, dim=-1)
-                top1_final = torch.argmax(probs_final, dim=-1)
+                if self.enable_logging:
+                    gen_logits_final = logits[:, prompt_len:, :]
+                    probs_final = torch.softmax(gen_logits_final, dim=-1)
+                    top1_final = torch.argmax(probs_final, dim=-1)
 
-                # Identify Flips
-                flips = (top1_original != top1_final)
+                    # Identify Flips
+                    flips = (top1_original != top1_final)
 
-                # Get Top K of Final Distribution
-                topk_probs_final, topk_indices_final = torch.topk(probs_final, k=k_val, dim=-1)
+                    # Get Top K of Final Distribution
+                    topk_probs_final, topk_indices_final = torch.topk(probs_final, k=k_val, dim=-1)
+                    topk_probs_original_at_final = torch.gather(probs_original, -1, topk_indices_final)
+                    topk_probs_final_at_orig = torch.gather(probs_final, -1, topk_indices_orig)
 
-                # Get Original Probabilities at Final Indices (Current Top K)
-                topk_probs_original_at_final = torch.gather(probs_original, -1, topk_indices_final)
-
-                # Get Final Probabilities at Original Indices (Original Top K)
-                topk_probs_final_at_orig = torch.gather(probs_final, -1, topk_indices_orig)
-
-                # 3. Sampling Logic (Calculate transfer_index but don't apply yet)
-                # logits_with_noise = self.add_gumbel_noise(logits, temperature=temperature)
-                # x0 = torch.argmax(logits_with_noise, dim=-1)
-
-                # Use the memory-efficient version that fuses argmax
+                # Use memory-efficient gumbel sampling
                 x0 = self.sample_gumbel_efficient(logits, temperature)
 
                 p = F.softmax(logits, dim=-1)

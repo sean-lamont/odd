@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models">
+  <meta name="keywords" content="Diffusion Models, LLM, Diversity, Sampling, Pass@k, GSM8K, HumanEval">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ODD: Orthogonal Diverse Diffusion</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
+  <style>
+    body { font-family: 'Noto Sans', sans-serif; }
+    .title { font-family: 'Google Sans', sans-serif; }
+    .publication-title { font-family: 'Google Sans', sans-serif; font-weight: bold; }
+    .publication-authors { font-family: 'Google Sans', sans-serif; font-size: 1.1rem; }
+    .author-block { display: inline-block; margin-right: 10px; }
+    .publication-links { margin-top: 20px; }
+    .link-block a { margin: 0 5px; }
+    .abstract-text { font-size: 1.1rem; line-height: 1.6; }
+    .results-image { border-radius: 10px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2); }
+    .teaser { margin-top: 20px; margin-bottom: 20px; }
+
+    /* Custom Table Styling */
+    .result-table { margin: 20px auto; width: 95%; border-collapse: collapse; font-family: 'Google Sans', sans-serif; font-size: 0.95rem; }
+    .result-table th, .result-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    .result-table th { background-color: #f2f2f2; font-weight: bold; }
+    .result-table tr:nth-child(even){background-color: #f9f9f9;}
+    .best-result { font-weight: bold; color: #2e7d32; }
+    .alpha-note { font-size: 0.8em; color: #666; font-style: italic; display: block; margin-top: 2px;}
+
+    .caption { font-size: 0.9rem; color: #666; margin-top: 10px; text-align: center; }
+    .section-title { margin-bottom: 1.5rem !important; }
+
+    .video-container {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 */
+        height: 0;
+        background-color: #000;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.3);
+        margin-bottom: 20px;
+    }
+    .video-placeholder {
+        position: absolute;
+        top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        color: white; flex-direction: column;
+    }
+  </style>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Free Lunch for Pass@k?<br>Low Cost Diverse Sampling for Diffusion Language Models</h1>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Sean Lamont<sup>1,2</sup>,</span>
+            <span class="author-block">Christian Walder<sup>3</sup>,</span>
+            <span class="author-block">Paul Montague<sup>2</sup>,</span>
+            <span class="author-block">Amir Dezfouli<sup>4</sup>,</span>
+            <span class="author-block">Michael Norrish<sup>1</sup></span>
+          </div>
+
+          <div class="is-size-6 publication-authors">
+            <span class="author-block"><sup>1</sup>Australian National University,</span>
+            <span class="author-block"><sup>2</sup>Defence Science and Technology Group,</span>
+            <span class="author-block"><sup>3</sup>Google DeepMind,</span>
+            <span class="author-block"><sup>4</sup>BIMLOGIQ</span>
+          </div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/TODO_YOUR_ARXIV_ID"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="ai ai-arxiv"></i></span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+
+              <span class="link-block">
+                <a href="https://github.com/sean-lamont/odd"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fab fa-github"></i></span>
+                  <span>Code</span>
+                </a>
+              </span>
+
+              <span class="link-block">
+                <a href="https://wandb.ai/YOUR_ENTITY/text_dpp"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-chart-line"></i></span>
+                  <span>Weights & Biases</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body has-text-centered">
+      <img src="../assets/fig1.png" class="results-image" alt="ODD Overview Diagram" style="max-width: 80%;">
+      <h2 class="subtitle caption">
+        <strong>Figure 1:</strong> Unlike standard sampling which collapses to a single mode, ODD forces the model to explore orthogonal reasoning paths, finding valid solutions (green) where the baseline fails (red).
+      </h2>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3 section-title">Abstract</h2>
+        <div class="content has-text-justified abstract-text">
+          <p>
+            Diverse outputs in text generation are necessary for effective exploration in complex reasoning tasks, such as code generation and mathematical problem solving. Such <strong>Pass@k</strong> problems benefit from distinct candidates covering the solution space. However, traditional sampling approaches often waste computational resources on repetitive failure modes.
+          </p>
+          <p>
+            While Diffusion Language Models (DLMs) have emerged as a competitive alternative to the prevailing Autoregressive paradigm, they remain susceptible to this redundancy. To address this, we propose <strong>ODD (Orthogonal Diverse Diffusion)</strong>, a training-free, low-cost intervention to enhance generative diversity.
+          </p>
+          <p>
+            Our approach modifies intermediate samples in a batch sequentially, where each sample is repelled from the feature space of previous samples, actively penalizing redundancy. Unlike prior methods that require retraining or beam search, our strategy incurs negligible computational overhead while ensuring that each sample contributes a unique perspective. We evaluate our method on HumanEval and GSM8K using the LLaDA-8B-Instruct model, demonstrating significantly improved diversity and Pass@k performance.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3 section-title">The Problem: Sampling Redundancy</h2>
+        <div class="content has-text-justified">
+          <p>
+            In reasoning tasks like mathematics or coding, standard sampling methods typically rely on temperature scaling to induce variance. However, this is insufficient for effective exploration:
+            <ul>
+                <li><strong>Low Temperature:</strong> Leads to mode collapse, where the model repeatedly samples the same high-probability failure mode, wasting valuable compute on identical errors.</li>
+                <li><strong>High Temperature:</strong> Introduces random noise, often causing the model to produce nonsensical or syntactically invalid outputs that fail basic quality checks.</li>
+            </ul>
+          </p>
+          <p>
+            Finding correct reasoning paths requires structured exploration. DLMs offer a unique advantage: they refine the entire sequence simultaneously. This global view allows us to enforce meaningful diversity across the batch throughout generation without sacrificing quality.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="background-color: #f5f5f5;">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3 section-title">Methodology: Orthogonal Repulsion</h2>
+          <div style="text-align: center; margin: 2rem 0;">
+              <img src="../assets/fig2.png" alt="Methodology Diagram" style="max-width: 80%; border: 1px solid #ddd; border-radius: 5px;">
+          </div>
+        <div class="content has-text-justified">
+          <p>
+            We introduce a training-free inference intervention called <strong>Orthogonal Diverse Diffusion</strong>. We extract a feature vector \(v_i\) for each sample from its intermediate logits and maintain an orthogonal basis \(B_{&lt;i}\) spanning the feature space of all previous samples.
+          </p>
+          <p>
+            The diversity loss is defined as the projection of the current sample onto this subspace:
+          </p>
+          <div class="has-text-centered" style="margin: 20px 0; font-size: 1.2rem;">
+            \[ \mathcal{L}_{\text{orth}} = -q_i \cdot ||v_i - \text{proj}_{B_{&lt;i}}(v_i)||_2 \]
+          </div>
+          <p>
+            To apply this intervention, we update the model logits \(\mathbf{x}_i\) by taking a step against the gradient of this loss, scaled by a step size \(\alpha\):
+          </p>
+          <div class="has-text-centered" style="margin: 20px 0; font-size: 1.2rem;">
+            \[ \hat{\mathbf{x}}_i = \mathbf{x}_i - \alpha \cdot \nabla_{\mathbf{x}_i}\mathcal{L}_{\text{orth}} \]
+          </div>
+          <p>
+            This "pushes" the current sample toward the null space of previous generations, forcing it to find a valid solution that is geometrically distinct. By scaling the repulsion with a quality score \(q_i\), we ensure that we only enforce diversity where the model is confident, avoiding the incoherence typical of high-temperature sampling.
+          </p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+    <div class="container is-max-desktop">
+        <h2 class="title is-3 has-text-centered section-title">Key Results</h2>
+
+        <div class="content has-text-justified">
+            <p>
+                We evaluated ODD on a subset of the GSM8K (reasoning) and HumanEval (coding) benchmarks using LLaDA-8B-Instruct. The table below shows the performance range across different repulsion strengths \(\alpha \in [2, 128]\).
+            </p>
+        </div>
+
+        <div class="table-container">
+            <table class="result-table">
+                <thead>
+                <tr>
+                    <th rowspan="2">Benchmark</th>
+                    <th rowspan="2">Method</th>
+                    <th colspan="5">Temperature (\(\theta\))</th>
+                </tr>
+                <tr>
+                    <th>0.0</th>
+                    <th>0.5</th>
+                    <th>1.0</th>
+                    <th>1.5</th>
+                    <th>2.0</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td rowspan="2"><strong>GSM8K (200 Problems) </strong><br><small>(Pass@16)</small></td>
+                    <td>Baseline</td>
+                    <td>61.0</td>
+                    <td>74.8</td>
+                    <td>81.3</td>
+                    <td>83.4</td>
+                    <td>76.5</td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>ODD (Ours)</strong><br></td>
+                    <td>
+                        <span class="alpha-note">Min: 69.8</span>
+                        <span class="best-result">Max: 79.1</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 80.8</span>
+                        <span class="best-result">Max: 87.6</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 83.2</span>
+                        <span class="best-result">Max: 87.9</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 83.1</span>
+                        <span class="best-result">Max: 88.6</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 78.2</span>
+                        <span class="best-result">Max: 87.8</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td rowspan="2"><strong>HumanEval</strong><br><small>(Pass@16)</small></td>
+                    <td>Baseline</td>
+                    <td>19.5</td>
+                    <td>33.3</td>
+                    <td>42.4</td>
+                    <td>41.8</td>
+                    <td>7.7</td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>ODD (Ours)</strong></td>
+                    <td>
+                        <span class="alpha-note">Min: 28.2</span>
+                        <span class="best-result">Max: 41.5</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 37.0</span>
+                        <span class="best-result">Max: 48.3</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 44.8</span>
+                        <span class="best-result">Max: 51.3</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 43.6</span>
+                        <span class="best-result">Max: 51.7</span>
+                    </td>
+                    <td>
+                        <span class="alpha-note">Min: 8.2</span>
+                        <span class="best-result">Max: 39.6</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+            <p class="caption">
+                <strong>Table 1:</strong> Pass@16 performance. The values show the range of performance achieved across different repulsion strengths \(\alpha\). ODD consistently improves upon the baseline across all temperature settings, with particularly strong gains in the greedy (\(\theta=0\)) and high-noise (\(\theta=2\)) regimes.
+            </p>
+        </div>
+
+        <br>
+
+        <div class="columns is-centered">
+            <div class="column is-full-width">
+                <h3 class="title is-4">Computational Overhead</h3>
+                <p>
+                    A key advantage of ODD is its efficiency. The table below summarizes the average wall-time latency per batch for standard generation versus ODD.
+                </p>
+                <div class="table-container">
+                    <table class="result-table" style="width: 70%;">
+                        <thead>
+                            <tr>
+                                <th>Method</th>
+                                <th>GSM8K (s)</th>
+                                <th>HumanEval (s)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Baseline (Standard)</strong></td>
+                                <td>22.5 &plusmn; 0.3</td>
+                                <td>30.8 &plusmn; 0.4</td>
+                            </tr>
+                            <tr style="background-color: #e8f5e9;">
+                                <td><strong>ODD (Ours)</strong></td>
+                                <td>23.8 &plusmn; 0.5</td>
+                                <td>32.0 &plusmn; 0.2</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Relative Overhead</strong></td>
+                                <td><strong>+5.8%</strong></td>
+                                <td><strong>+3.9%</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p class="caption">
+                        <strong>Table 2:</strong> Average wall-time execution per batch (\(B=16\)). ODD introduces negligible latency (< 6%) while significantly boosting Pass@16.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Interactive Visualization</h2>
+    <div class="content has-text-justified">
+      <p>
+        Understanding how diversity interventions affect the generation trajectory is crucial. We provide an interactive Streamlit application (`app.py`) that allows users to visualise the diffusion process in real-time.
+      </p>
+    </div>
+
+    <div class="columns is-centered">
+        <div class="column is-four-fifths">
+            <div class="video-container">
+                <video poster="" id="demo-video" controls muted loop width="100%">
+                    <source src="../assets/demo_video.mp4" type="video/mp4">
+                </video>
+                <div class="video-placeholder" style="display: none;">
+                    <i class="fas fa-play-circle fa-3x"></i>
+                    <p>Demo Video Coming Soon</p>
+                </div>
+            </div>
+            <p class="caption">
+                <strong>Figure 3:</strong> Screen recording of the <code>app.py</code> dashboard showing real-time generation dynamics.
+            </p>
+        </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{lamont2025odd,
+  title={Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models},
+  author={Lamont, Sean and Walder, Christian and Montague, Paul and Dezfouli, Amir and Norrish, Michael},
+  journal={arXiv preprint},
+  year={2025}
+}</code></pre>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        Website template borrowed from <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+    // Fallback script: if the video fails to load, show the placeholder icon
+    const video = document.getElementById('demo-video');
+    const placeholder = document.querySelector('.video-placeholder');
+    video.onerror = function() {
+        video.style.display = 'none';
+        placeholder.style.display = 'flex';
+    };
+</script>
+
+</body>
+</html>

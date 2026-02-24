@@ -12,8 +12,8 @@ sys.path.append(os.path.join(os.getcwd(), "human-eval"))
 from human_eval.data import read_problems
 from human_eval.execution import check_correctness
 
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
-from dpp_gen import load_model
+from odd_core import FeatureExtractor, get_strategy, DPPGenerator
+from odd_gen import load_model
 from utils import calculate_diversity_score
 from sentence_transformers import SentenceTransformer
 

@@ -7,8 +7,8 @@ from omegaconf import OmegaConf
 from sklearn.model_selection import ParameterGrid
 
 # Import your existing project modules
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
-from dpp_gen import load_model
+from odd_core import FeatureExtractor, get_strategy, DPPGenerator
+from odd_gen import load_model
 from utils import calculate_diversity_score
 import re
 from datasets import load_dataset

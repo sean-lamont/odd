@@ -3,7 +3,7 @@ import torch
 import hydra
 from omegaconf import DictConfig
 from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
+from odd_core import FeatureExtractor, get_strategy, DPPGenerator
 import wandb
 import os
 

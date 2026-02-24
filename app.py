@@ -7,8 +7,8 @@ import torch
 import hydra
 from omegaconf import OmegaConf
 from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
-from dpp_gen import load_model
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
+from odd_gen import load_model
+from odd_core import FeatureExtractor, get_strategy, DPPGenerator
 
 from hydra import compose, initialize
 from hydra.core.global_hydra import GlobalHydra

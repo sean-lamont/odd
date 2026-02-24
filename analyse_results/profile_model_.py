@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 from datasets import load_dataset
 
-from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
+from odd_core import FeatureExtractor, get_strategy, DPPGenerator
 
 from human_eval.data import read_problems
 

@@ -13,9 +13,13 @@ from dpp_core import FeatureExtractor, get_strategy, DPPGenerator
 from hydra import compose, initialize
 from hydra.core.global_hydra import GlobalHydra
 
+'''
 
-# Helper to load config without hydra.main decorator for Streamlit
-#tsetset
+Streamlit app to run LLaDA with various diversity strategies. Visualises the generation for a batch over time,
+highlighting where the diversity approach changes the outcome. 
+
+'''
+
 def load_config():
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
@@ -268,7 +272,7 @@ if __name__ == '__main__':
 
         st.divider()
         st.subheader("DPP Controls")
-        strategy_name = st.selectbox("Strategy", ["sequential_subtraction", "gram_schmidt", "orthogonal_projection", "joint", "random_probe", "batched_orth"])
+        strategy_name = st.selectbox("Strategy", ["orthogonal_projection", "joint", "random_probe", "batched_orth"])
         # quality_scale = st.slider("Quality Scale", 0.0, 10.0, 1.0)
         # alpha = st.slider("Alpha (Repulsion)", 0.0, 100.0, 5.0)
 

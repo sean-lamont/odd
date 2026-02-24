@@ -1,0 +1,3 @@
+- Get wandb data with `analyse_results/download_runs.py` `analyse_results/download_tables.py`
+- Run the analysis scripts to generate tables and plots from the paper
+- `profile_model_.py` to get profiling results, then `plot_overhead.py` to get the overhead plots

@@ -6,10 +6,8 @@ import optuna
 import wandb
 import numpy as np
 from omegaconf import OmegaConf
-import re
 from sklearn.model_selection import ParameterGrid
 
-# Add human-eval to path
 sys.path.append(os.path.join(os.getcwd(), "human-eval"))
 from human_eval.data import read_problems
 from human_eval.execution import check_correctness
@@ -33,18 +31,15 @@ with hydra.initialize(version_base=None, config_path="conf"):
     base_cfg = hydra.compose(config_name="config")
 
 model, tokenizer, embedding_matrix, mask_token_id = load_model(base_cfg)
+# for diverseity eval
 eval_model = SentenceTransformer('all-MiniLM-L6-v2')
 problems_dict = read_problems()
 problem_list = list(problems_dict.values())
 
 
-# -------------------------------------------------------------------
-# OPTUNA OBJECTIVE
-# -------------------------------------------------------------------
 def objective(trial):
     strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
     temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
-    # temperature = trial.suggest_categorical("temperature", [1.0])
 
     strategy_name = "joint"
     strategy_quality = 1.0
@@ -52,12 +47,10 @@ def objective(trial):
     strategy_pool = "max"
     ignore_pad = False
 
-    # --- UPDATED: Slicing Strategy ---
     batch_size = 16
     n_problems = 164
     steps = 32
 
-    # 2. Merge Config
     cfg = base_cfg.copy()
     if "strategy" not in cfg: cfg.strategy = {}
     cfg.strategy.name = strategy_name
@@ -70,7 +63,6 @@ def objective(trial):
     cfg.steps = steps
     cfg.ignore_pad = ignore_pad
 
-    # 3. Init W&B Run
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="humaneval",
@@ -196,7 +188,8 @@ if __name__ == "__main__":
         "strategy.alpha": [2.0, 8.0, 16.0, 32.0, 64.0, 128.0],
         "temperature": [0.0, 0.5, 1.0, 1.5, 2.0]
     }
-    n_repeats = 6
+
+    n_repeats = 8
 
 
     study = optuna.create_study(
@@ -216,10 +209,3 @@ if __name__ == "__main__":
         print(f">>> Study exists ({len(study.trials)} trials). Starting worker...")
 
     study.optimize(objective, n_trials=len(list(ParameterGrid(search_space))) * n_repeats)
-
-    #
-    # study.enqueue_trial({'temperature': 1.0, 'strategy.alpha': 2.0})
-    # study.enqueue_trial({'temperature': 0.5, 'strategy.alpha': 16.0})
-    # study.enqueue_trial({'temperature': 2.0, 'strategy.alpha': 64.0})
-    #
-    # study.optimize(objective, n_trials=3)

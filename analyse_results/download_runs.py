@@ -33,5 +33,5 @@ def export_project_data(project_path, output_csv):
 
 
 if __name__ == "__main__":
-    export_project_data("tactic-zero/gsm8k", "gsm8k.csv")
-    export_project_data("tactic-zero/humaneval", "humaneval.csv")
+    export_project_data("sean-a-lamont/odd_gsm8k", "gsm8k.csv")
+    export_project_data("sean-a-lamont/odd_humaneval", "humaneval.csv")

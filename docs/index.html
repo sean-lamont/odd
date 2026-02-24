@@ -139,7 +139,7 @@
             While Diffusion Language Models (DLMs) have emerged as a competitive alternative to the prevailing Autoregressive paradigm, they remain susceptible to this redundancy. To address this, we propose <strong>ODD (Orthogonal Diverse Diffusion)</strong>, a training-free, low-cost intervention to enhance generative diversity.
           </p>
           <p>
-            Our approach modifies intermediate samples in a batch sequentially, where each sample is repelled from the feature space of previous samples, actively penalizing redundancy. Unlike prior methods that require retraining or beam search, our strategy incurs negligible computational overhead while ensuring that each sample contributes a unique perspective. We evaluate our method on HumanEval and GSM8K using the LLaDA-8B-Instruct model, demonstrating significantly improved diversity and Pass@k performance.
+            Our approach modifies intermediate samples in a batch sequentially, where each sample is repelled from the feature space of previous samples, actively penalising redundancy. Unlike prior methods that require retraining or beam search, our strategy incurs negligible computational overhead while ensuring that each sample contributes a unique perspective. We evaluate our method on HumanEval and GSM8K using the LLaDA-8B-Instruct model, demonstrating significantly improved diversity and Pass@k performance.
           </p>
         </div>
       </div>
@@ -308,7 +308,9 @@
             <div class="column is-full-width">
                 <h3 class="title is-4">Computational Overhead</h3>
                 <p>
-                    A key advantage of ODD is its efficiency. The table below summarizes the average wall-time latency per batch for standard generation versus ODD.
+                    A key advantage of ODD is its efficiency, as it updates logits after the model call and only needs to track gradients for the projection and feature extraction operations.
+                    It therefore scales independently of the base model.
+                    The table below summarises the average wall-time latency per batch for standard generation versus ODD.
                 </p>
                 <div class="table-container">
                     <table class="result-table" style="width: 70%;">
@@ -348,7 +350,7 @@
 </section>
 <section class="section">
   <div class="container is-max-desktop">
-    <h2 class="title is-3 has-text-centered section-title">Interactive Visualization</h2>
+    <h2 class="title is-3 has-text-centered section-title">Interactive Visualisation</h2>
     <div class="content has-text-justified">
       <p>
         Understanding how diversity interventions affect the generation trajectory is crucial. We provide an interactive Streamlit application (`app.py`) that allows users to visualise the diffusion process in real-time.

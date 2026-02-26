@@ -5,7 +5,7 @@
 
 
 ## Overview
-![Approach Diagram](assets/fig1.png)
+![Approach Diagram](docs/assets/fig1.png)
 
 
 This repository contains the official implementation of **ODD (Orthogonal Diverse Diffusion)**, a training-free inference strategy designed to enhance the diversity and sample efficiency of Diffusion Language Models (such as LLaDA). 
@@ -16,7 +16,7 @@ By applying a lightweight, geometric repulsion term during the denoising process
 
 Unlike standard sampling, which treats every generation independently and often collapses into redundant modes, ODD exploits the intermediate states of the diffusion process. For each sample in a batch, it projects the latent features away from the subspace spanned by previous samples, enforcing structural diversity without requiring retraining or complex beam searches.
 
-![Approach Diagram](assets/fig2.png)
+![Approach Diagram](docs/assets/fig2.png)
 
 ## Repository Structure
 

@@ -1,0 +1,19 @@
+defaults:
+  - model: llada
+  - strategy: joint
+  - _self_
+
+prompt: "Write a python function to compute fibonacci."
+batch_size: 8
+n_problems: 300
+steps: 32
+gen_length: 64
+temperature: 1.0
+#seed: 42
+use_wandb: false
+wandb_project: "text_dpp"
+wandb_entity: null
+use_confidence_weighting: true
+ignore_pad: false
+
+output_dir: "outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}"

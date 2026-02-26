@@ -1,0 +1,25 @@
+\begin{table}[t]
+\centering
+\caption{Cumulative problem coverage across all temperature settings. Orthogonal repulsion ($\alpha > 0$) increases coverage on open-ended generation tasks (HumanEval) while maintaining robust performance on deterministic reasoning tasks (GSM8K).}
+\label{tab:cumulative_coverage}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+\textbf{Dataset} & \textbf{$\alpha$ (Repulsion)} & \textbf{Solved (Union)} & \textbf{Coverage} \\ \midrule
+\multirow{7}{*}{\textbf{GSM8K}}     & 0.0 (Baseline)  & \textbf{198}           & \textbf{99.00\%} \\ % Total Trials: 8000
+                                    & 2.0             & 193                    & 96.50\%         \\ % Total Trials: 8000
+                                    & 8.0             & 192                    & 96.00\%         \\ % Total Trials: 8000
+                                    & 16.0            & 195                    & 97.50\%         \\ % Total Trials: 8000
+                                    & 32.0            & 195                    & 97.50\%         \\ % Total Trials: 8000
+                                    & 64.0            & 195                    & 97.50\%         \\ % Total Trials: 8000
+                                    & 128.0           & 197                    & 98.50\%         \\ % Total Trials: 8000
+\midrule
+\multirow{7}{*}{\textbf{HumanEval}} & 0.0 (Baseline)  & 110                    & 67.07\%         \\ % Total Trials: 6560
+                                    & 2.0             & 113                    & 68.90\%         \\ % Total Trials: 6560
+                                    & 8.0             & 124                    & 75.61\%         \\ % Total Trials: 6560
+                                    & 16.0            & \textbf{129}           & \textbf{78.66\%} \\ % Total Trials: 6560
+                                    & 32.0            & 122                    & 74.39\%         \\ % Total Trials: 6396
+                                    & 64.0            & 123                    & 75.00\%         \\ % Total Trials: 6560
+                                    & 128.0           & 120                    & 73.17\%         \\ % Total Trials: 6232
+\bottomrule
+\end{tabular}
+\end{table}

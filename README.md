@@ -14,6 +14,9 @@ Unlike standard sampling, which treats every generation independently and often 
 
 ![Approach Diagram](docs/assets/fig2.png)
 
+## Usage
+Run `python odd_gen.py` to run a diversity augmented generation. The prompt and diversity settings can be configured in the config file `conf/config.yaml`.
+
 ## Repository Structure
 
 The codebase is structured as follows:

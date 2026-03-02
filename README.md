@@ -19,7 +19,7 @@
   <img src="docs/assets/demo.gif" alt="ODD Interactive Visualisation App" width="90%">
 </p>
 <p align="center">
-  <em>Our interactive dashboard visualising ODD altering generation in real-time. It highlights counterfactuals, showing exactly what standard sampling would have unmasked (dashed) and where ODD forced a unique path (blue / red underline).</em>
+  <em>Our interactive dashboard visualising ODD altering generation in real-time. It highlights counterfactuals, showing exactly what standard sampling would have unmasked (dashed) and where ODD forced a unique path (blue).</em>
 </p>
 
 ---

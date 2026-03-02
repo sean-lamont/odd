@@ -37,13 +37,13 @@ Run these scripts to replicate the experiments in the paper. They handle dataset
 * **`sweep_gsm8k.py`**: Experiments for the 200 problem subset we test on in GSM8K, extracts answers by the final numeric value in the output string.
 * **`sweep_human_eval.py`**: Evaluation over the HumanEval coding benchmark. It interfaces with the local `human_eval` directory to execute and validate generated code samples.
 
-### Visualization & Analysis
-* **`app.py`**: An interactive Streamlit application to visualize the diffusion process (see details below).
+### Visualisation & Analysis
+* **`app.py`**: An interactive Streamlit application to visualise the diffusion process (see details below).
 * **`analyse_results/`**: Contains scripts to download WandB run data and generate the tables/plots found in the paper, as well as profiling the overhead. 
 * **`conf/`**: Stores the Hydra configuration files.
 * **`human_eval/`**: A fork of the official HumanEval evaluation harness, used by `sweep_human_eval.py` to run code execution tests.
 
-## Interactive Visualization (App)
+## Interactive Visualisation (App)
 To understand exactly how diversity interventions alter the model's generation trajectory, we provide an interactive visualisation tool. 
 It calculates a "counterfactual" with the ODD generation to show exactly what standard sampling would have done at every step, and how the given diversity strategy and settings changes the trajectory. 
 
@@ -59,7 +59,7 @@ conda env create -f environment.yml
 conda activate odd
 pip install -r requirements.txt
 ```
-Install `flash_attn` and `triton` separately if supported by your system.
+Install `flash_attn` and `triton` separately if supported by your system, with the versions we use commented out in `requirements.txt`.
 
 
 

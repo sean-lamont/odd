@@ -7,7 +7,7 @@
 <div align="center">
 
 [![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/TODO_YOUR_ARXIV_ID)
-[![Project Website](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)](https://TODO_YOUR_GITHUB_PAGES_URL)
+[![Project Website](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)](https://sean-lamont.github.io/odd/)
 [![Weights & Biases GSM8K](https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_gsm8k)
 [![Weights & Biases HumanEval](https://img.shields.io/badge/W&B-HumanEval-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_humaneval)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/sean-lamont/odd/blob/main/LICENSE)
@@ -19,7 +19,7 @@
   <img src="docs/assets/demo.gif" alt="ODD Interactive Visualisation App" width="90%">
 </p>
 <p align="center">
-  <em>Our interactive dashboard visualising ODD altering generation in real-time. It highlights counterfactuals—showing exactly what standard sampling would have unmasked (dashed) and where ODD forced a unique reasoning path.</em>
+  <em>Our interactive dashboard visualising ODD altering generation in real-time. It highlights counterfactuals, showing exactly what standard sampling would have unmasked (dashed) and where ODD forced a unique path (blue / red underline).</em>
 </p>
 
 ---
@@ -92,7 +92,7 @@ Run these scripts to replicate the experiments in the paper. They handle dataset
 * **`sweep_human_eval.py`**: Evaluation over the HumanEval coding benchmark. It interfaces with the local `human_eval` directory to execute and validate generated code samples.
 
 ### Visualisation & Analysis
-* **`app.py`**: An interactive Streamlit application to visualise the diffusion process (see details below).
+* **`app.py`**: An interactive Streamlit application to visualise the diffusion process.
 * **`analyse_results/`**: Contains scripts to download WandB run data and generate the tables/plots found in the paper, as well as profiling the overhead. 
 * **`conf/`**: Stores the Hydra configuration files.
 * **`human_eval/`**: A fork of the official HumanEval evaluation harness, used by `sweep_human_eval.py` to run code execution tests.

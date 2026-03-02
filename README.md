@@ -4,14 +4,16 @@
   <strong>Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models</strong>
 </p>
 
-<p align="center">
-  <a href="[https://arxiv.org/abs/TODO_YOUR_ARXIV_ID](https://arxiv.org/abs/TODO_YOUR_ARXIV_ID)"><img src="[https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)" alt="arXiv Paper"></a>
-  <a href="https://TODO_YOUR_GITHUB_PAGES_URL"><img src="[https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)" alt="Project Website"></a>
-  <a href="[https://wandb.ai/sean-a-lamont/odd_gsm8k](https://wandb.ai/sean-a-lamont/odd_gsm8k)"><img src="[https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white](https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)" alt="Weights & Biases GSM8K"></a>
-  <a href="[https://wandb.ai/sean-a-lamont/odd_humaneval](https://wandb.ai/sean-a-lamont/odd_humaneval)"><img src="[https://img.shields.io/badge/W&B-HumanEval-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white](https://img.shields.io/badge/W&B-HumanEval-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)" alt="Weights & Biases HumanEval"></a>
-  <a href="[https://github.com/sean-lamont/odd/blob/main/LICENSE](https://github.com/sean-lamont/odd/blob/main/LICENSE)"><img src="[https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)" alt="License"></a>
-  <img src="[https://img.shields.io/badge/Python-3.9+-yellow.svg?style=flat-square](https://img.shields.io/badge/Python-3.9+-yellow.svg?style=flat-square)" alt="Python Version">
-</p>
+<div align="center">
+
+[![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/TODO_YOUR_ARXIV_ID)
+[![Project Website](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)](https://TODO_YOUR_GITHUB_PAGES_URL)
+[![Weights & Biases GSM8K](https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_gsm8k)
+[![Weights & Biases HumanEval](https://img.shields.io/badge/W&B-HumanEval-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_humaneval)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://github.com/sean-lamont/odd/blob/main/LICENSE)
+![Python Version](https://img.shields.io/badge/Python-3.9+-yellow.svg?style=flat-square)
+
+</div>
 
 <p align="center">
   <img src="docs/assets/demo.gif" alt="ODD Interactive Visualisation App" width="90%">

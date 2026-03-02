@@ -1,42 +1,11 @@
-import numpy as np
-import torch
 import hydra
 from omegaconf import DictConfig
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
-from odd_core import FeatureExtractor, get_strategy, DPPGenerator
-import wandb
-import os
 
-def load_model(cfg):
-    print(f"Loading {cfg.model.name}...")
-    bnb_config = BitsAndBytesConfig(
-        load_in_4bit=cfg.model.load_in_4bit,
-        bnb_4bit_compute_dtype=torch.bfloat16,
-        bnb_4bit_use_double_quant=True,
-        bnb_4bit_quant_type="nf4"
-    )
+from feature_extractor import FeatureExtractor
+from generator import DiverseGenerator
+from strategies import get_strategy
+from utils import load_model
 
-    tokenizer = AutoTokenizer.from_pretrained(cfg.model.name, trust_remote_code=True)
-    model = AutoModel.from_pretrained(
-        cfg.model.name,
-        trust_remote_code=True,
-        quantization_config=bnb_config,
-        device_map="auto"
-    )
-
-    model.eval()
-    tokenizer.padding_side = 'left'
-
-    if hasattr(model, "model") and hasattr(model.model, "transformer"):
-        embedding_matrix = model.model.transformer.wte.weight
-    else:
-        embedding_matrix = None
-
-    mask_token_id = tokenizer.mask_token_id
-    if mask_token_id is None:
-        mask_token_id = cfg.model.mask_token_id
-
-    return model, tokenizer, embedding_matrix, mask_token_id
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig):
@@ -57,7 +26,7 @@ def main(cfg: DictConfig):
         feature_extractor
     )
     
-    generator = DPPGenerator(model, tokenizer, dpp_strategy, mask_token_id)
+    generator = DiverseGenerator(model, tokenizer, dpp_strategy, mask_token_id)
     
     print(f"Generating for prompt: {cfg.prompt}")
     history, samples = generator.generate(

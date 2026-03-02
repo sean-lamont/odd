@@ -6,7 +6,7 @@ def generate_latex_table(datasets):
     """
     Parses datasets and directly outputs a formatted LaTeX table.
     """
-    ALLOWED_STRATEGIES = ["baseline", "batched_orth"]
+    ALLOWED_STRATEGIES = ["baseline", "odd"]
 
     all_stats = {}
     all_totals = {}
@@ -26,7 +26,7 @@ def generate_latex_table(datasets):
             total_problems.add(problem_id)
 
             for run in runs_list:
-                run_strategy = run.get('strategy', 'batched_orth')
+                run_strategy = run.get('strategy', 'odd')
                 if run_strategy not in ALLOWED_STRATEGIES:
                     continue
 

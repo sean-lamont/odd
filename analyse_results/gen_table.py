@@ -47,11 +47,11 @@ def load_and_process_csv(csv_path, dataset_name, strategy_col, alpha_key):
 
 def generate_combined_latex_table(gsm_csv, he_csv, strategy_col, temp_col,
                                   target_strategy='orthogonal_projection',
-                                  joint_strategy='joint',
+                                  dpp_strategy='dpp',
                                   alpha_key='alpha'):
     """
     Generates a combined LaTeX table for GSM8K and HumanEval.
-    Includes Baseline, Joint Strategy, and the Target Strategy for pass@16.
+    Includes Baseline, dpp Strategy, and the Target Strategy for pass@16.
     """
     df_gsm = load_and_process_csv(gsm_csv, 'GSM8K', strategy_col, alpha_key)
     df_he = load_and_process_csv(he_csv, 'HumanEval', strategy_col, alpha_key)
@@ -73,9 +73,9 @@ def generate_combined_latex_table(gsm_csv, he_csv, strategy_col, temp_col,
     df_all['pass_at_16'] = df_all['pass_at_16'] * 100.0
 
     target_strategy = target_strategy.lower()
-    joint_strategy = joint_strategy.lower()
+    dpp_strategy = dpp_strategy.lower()
 
-    valid_strategies = ['baseline', joint_strategy, target_strategy]
+    valid_strategies = ['baseline', dpp_strategy, target_strategy]
     df_all = df_all[df_all['strategy_name'].isin(valid_strategies)]
 
     unique_temps = sorted(df_all[temp_col].unique())
@@ -152,7 +152,7 @@ def generate_combined_latex_table(gsm_csv, he_csv, strategy_col, temp_col,
         # Print sections in requested order
         has_baseline = print_section('baseline', 'Baseline (Standard LLaDA)')
 
-        if print_section(joint_strategy, 'Joint Strategy'):
+        if print_section(dpp_strategy, 'dpp Strategy'):
             if has_baseline:
                 print(r"\addlinespace")  # Optional styling gap
 
@@ -175,7 +175,7 @@ if __name__ == "__main__":
         he_csv='humaneval.csv',
         strategy_col='strategy',
         temp_col='temperature',
-        target_strategy='batched_orth',  # Your "Our Approach" Strategy Name
-        joint_strategy='joint',  # The baseline-comparison Strategy Name
+        target_strategy='odd',
+        dpp_strategy='dpp',
         alpha_key='alpha'
     )

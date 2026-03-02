@@ -1,4 +1,4 @@
-name: "joint"
+name: "dpp"
 alpha: 5.0
 quality_scale: 1.0
 pool: "max"

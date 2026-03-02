@@ -13,7 +13,7 @@ def plot_alpha_equally_spaced(
         filename,
         alpha_key='alpha',
         strategy_name_key='name',
-        allowed_strategies=["baseline", "batched_orth"]
+        allowed_strategies=["baseline", "odd"]
 ):
     """
     Plots alpha vs metric where the X-axis is CATEGORICAL (equally spaced).
@@ -149,7 +149,7 @@ if __name__ == "__main__":
         temp_col='temperature',
         alpha_key='alpha',
         strategy_name_key='name',
-        allowed_strategies=['baseline', 'batched_orth']
+        allowed_strategies=['baseline', 'odd']
     )
 
     plot_alpha_equally_spaced(
@@ -160,5 +160,5 @@ if __name__ == "__main__":
         filename='gsm8k_diversity.pdf',
         alpha_key='alpha',
         strategy_name_key='name',
-        allowed_strategies=['baseline', 'batched_orth'])
+        allowed_strategies=['baseline', 'odd'])
 

@@ -6,10 +6,10 @@ import numpy as np
 from omegaconf import OmegaConf
 from sklearn.model_selection import ParameterGrid
 
-# Import your existing project modules
-from odd_core import FeatureExtractor, get_strategy, DPPGenerator
-from odd_gen import load_model
-from utils import calculate_diversity_score
+from feature_extractor import FeatureExtractor
+from strategies import get_strategy
+from generator import DiverseGenerator
+from utils import load_model, calculate_diversity_score
 import re
 from datasets import load_dataset
 from sentence_transformers import SentenceTransformer
@@ -48,7 +48,7 @@ def objective(trial):
     strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
     temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
 
-    strategy_name = "joint" # batched_orth = ODD, # baseline
+    strategy_name = "dpp" # odd = ODD, # baseline
 
     strategy_quality = 1.0
     strategy_target = "logits"
@@ -74,7 +74,7 @@ def objective(trial):
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="gsm8k",
-        group="joint_new",
+        group="dpp_new",
         name=run_name,
         config=OmegaConf.to_container(cfg, resolve=True),
         reinit=True
@@ -99,7 +99,7 @@ def objective(trial):
             feature_extractor
         )
 
-        generator = DPPGenerator(model, tokenizer, dpp_strategy, mask_token_id)
+        generator = DiverseGenerator(model, tokenizer, dpp_strategy, mask_token_id)
 
         # Metrics Storage
         pass_at_k_totals = {k: [] for k in range(1, batch_size + 1)}
@@ -196,7 +196,7 @@ if __name__ == "__main__":
     n_repeats = 8
 
     study = optuna.create_study(
-        study_name="joint_new_gsm",
+        study_name="dpp_new_gsm",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

@@ -8,11 +8,14 @@ import numpy as np
 from omegaconf import OmegaConf
 from sklearn.model_selection import ParameterGrid
 
+from feature_extractor import FeatureExtractor
+from generator import DiverseGenerator
+from strategies import get_strategy
+
 sys.path.append(os.path.join(os.getcwd(), "human-eval"))
 from human_eval.data import read_problems
 from human_eval.execution import check_correctness
 
-from odd_core import FeatureExtractor, get_strategy, DPPGenerator
 from odd_gen import load_model
 from utils import calculate_diversity_score
 from sentence_transformers import SentenceTransformer
@@ -31,7 +34,7 @@ with hydra.initialize(version_base=None, config_path="conf"):
     base_cfg = hydra.compose(config_name="config")
 
 model, tokenizer, embedding_matrix, mask_token_id = load_model(base_cfg)
-# for diverseity eval
+# for diversity eval
 eval_model = SentenceTransformer('all-MiniLM-L6-v2')
 problems_dict = read_problems()
 problem_list = list(problems_dict.values())
@@ -41,7 +44,7 @@ def objective(trial):
     strategy_alpha = trial.suggest_categorical("strategy.alpha", [2.0, 8.0, 16.0, 32.0, 64.0, 128.0])
     temperature = trial.suggest_categorical("temperature", [0.0, 0.5, 1.0, 1.5, 2.0])
 
-    strategy_name = "joint"
+    strategy_name = "dpp"
     strategy_quality = 1.0
     strategy_target = "logits"
     strategy_pool = "max"
@@ -66,7 +69,7 @@ def objective(trial):
     run_name = f"trial_{trial.number}_{strategy_name}_alpha{strategy_alpha}_temp{temperature}"
     run = wandb.init(
         project="humaneval",
-        group="joint_new",
+        group="dpp_new",
         name=run_name,
         config=OmegaConf.to_container(cfg, resolve=True),
         reinit=True
@@ -93,7 +96,7 @@ def objective(trial):
             feature_extractor
         )
 
-        generator = DPPGenerator(model, tokenizer, dpp_strategy, mask_token_id)
+        generator = DiverseGenerator(model, tokenizer, dpp_strategy, mask_token_id)
 
         pass_at_k_totals = {k: [] for k in range(1, batch_size + 1)}
         cumulative_totals = {k: 0 for k in range(1, batch_size + 1)}
@@ -193,7 +196,7 @@ if __name__ == "__main__":
 
 
     study = optuna.create_study(
-        study_name="joint_new__he",
+        study_name="dpp_new__he",
         storage=storage_url,
         load_if_exists=True,
         direction="maximize"

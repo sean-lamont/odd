@@ -180,7 +180,7 @@ def main():
                 if i == 0: run_single_pass(gen_base, 1, 2, 5, "warmup")
                 time_base, alloc_base, res_base = run_single_pass(gen_base, batch, steps_val, gen_length, prompt_text)
 
-                strat_ortho = get_strategy("batched_orth", 64, 1.0, feature_extractor)
+                strat_ortho = get_strategy("odd", 64, 1.0, feature_extractor)
                 gen_ortho = DPPGenerator(model, tokenizer, strat_ortho, mask_token_id)
                 time_strat, alloc_strat, res_strat = run_single_pass(gen_ortho, batch, steps_val, gen_length,
                                                                      prompt_text)

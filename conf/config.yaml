@@ -1,6 +1,6 @@
 defaults:
   - model: llada
-  - strategy: joint
+  - strategy: dpp
   - _self_
 
 prompt: "Write a python function to compute fibonacci."

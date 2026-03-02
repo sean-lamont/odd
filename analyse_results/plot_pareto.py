@@ -14,11 +14,11 @@ def plot_pass1_vs_pass16_corrected(json_path, filename):
         return
 
     rows = []
-    ALLOWED_STRATEGIES = ["baseline", "batched_orth"]
+    ALLOWED_STRATEGIES = ["baseline", "odd"]
 
     for problem_id, runs_list in data.items():
         for run in runs_list:
-            run_strategy = run.get('strategy', 'batched_orth')
+            run_strategy = run.get('strategy', 'odd')
             if run_strategy not in ALLOWED_STRATEGIES:
                 continue
 

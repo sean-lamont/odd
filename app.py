@@ -1,17 +1,21 @@
 import datetime
 import json
-
 import altair as alt
 import pandas as pd
 import streamlit as st
-from hydra import compose, initialize
-from hydra.core.global_hydra import GlobalHydra
+import torch
+import hydra
+from omegaconf import OmegaConf
+from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
+from odd_gen import load_model
 
-from app_generator import AppGenerator
 # IMPORT THE NEW MODULAR FILES
 from feature_extractor import FeatureExtractor
-from odd_gen import load_model
 from strategies import get_strategy
+from app_generator import AppGenerator
+
+from hydra import compose, initialize
+from hydra.core.global_hydra import GlobalHydra
 
 
 def load_config():
@@ -42,7 +46,7 @@ def generate_viz_html(history):
         :root {{
             --bg: #0e1117; --panel: #1e2127; --border: #30363d;
             --accent: #2c93ff; --text-main: #c9d1d9; --text-muted: #8b949e;
-            --danger: #ff4b4b; --success: #2ea043; --gold: #ffd700; --flip: #d46bff;
+            --danger: #ff4b4b; --success: #2ea043; --gold: #ffd700;
         }}
         body {{
             background: var(--bg); color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -91,21 +95,18 @@ def generate_viz_html(history):
             100% {{ box-shadow: 0 0 0 0 rgba(44, 147, 255, 0); }}
         }}
 
-        .t-cell.new {{ border: 1px solid var(--gold); animation: pulse-gold 1s infinite; }}
+        /* Structural positioning classes */
+        .pos-both {{ border: 1px solid var(--gold); animation: pulse-gold 1s infinite; }}
+        .pos-odd {{ border: 1px solid var(--accent); background: rgba(44, 147, 255, 0.15) !important; animation: pulse-blue 1s infinite; }}
+        .pos-std {{ border: 1px dashed #ff6b6b; background: #222 !important; }}
 
-        .t-cell.flip-committed::after {{
-            content: '💥'; position: absolute; top: -8px; right: -6px;
-            font-size: 11px; background: #0e1117; border-radius: 50%; padding: 1px;
+        /* Token modification class */
+        .token-flipped {{
+            text-decoration: underline;
+            text-decoration-color: var(--danger);
+            text-decoration-thickness: 2px;
+            text-underline-offset: 3px;
         }}
-        .t-cell.flip-committed {{ border-bottom: 2px solid var(--danger); background: rgba(255, 75, 75, 0.2) !important; animation: pulse-gold 1s infinite; }}
-
-        .t-cell.odd-pos::after {{
-            content: '🎯'; position: absolute; top: -8px; right: -6px;
-            font-size: 11px; background: #0e1117; border-radius: 50%; padding: 1px;
-        }}
-        .t-cell.odd-pos {{ border-bottom: 2px solid var(--accent); background: rgba(44, 147, 255, 0.15) !important; animation: pulse-blue 1s infinite; }}
-
-        .t-cell.orig-pos {{ border: 1px dashed #ff6b6b; background: #222 !important; }}
 
         /* Probability Tables */
         table {{ width: 100%; border-collapse: collapse; font-size: 0.85em; margin-bottom: 10px; background: #1a1d24; border-radius: 4px; overflow: hidden; }}
@@ -118,10 +119,10 @@ def generate_viz_html(history):
     <div class="sidebar" id="inspector">
         <h2>Token Inspector</h2>
         <div style="color:#666; font-size:0.9em; margin-bottom:10px; line-height:1.6;">
-            <span style="color:var(--gold)">Gold Border</span> = Decoded by both<br>
-            <span style="color:var(--danger)">💥 / Red</span> = Token string Flipped<br>
-            <span style="color:var(--accent)">🎯 / Blue</span> = Position ONLY unmasked by ODD<br>
-            <span style="color:#ff6b6b; border:1px dashed #ff6b6b; padding:0 2px;">Mask</span> = Standard WOULD have unmasked
+            <span style="color:var(--gold); border: 1px solid var(--gold); padding: 0 2px;">Gold Border</span> = Decoded by both<br>
+            <span style="color:var(--accent); border: 1px solid var(--accent); padding: 0 2px;">Blue Border</span> = Position ONLY unmasked by ODD<br>
+            <span style="color:#ff6b6b; border:1px dashed #ff6b6b; padding:0 2px;">Mask</span> = Standard WOULD have unmasked<br>
+            <span style="text-decoration:underline; text-decoration-color:var(--danger); text-decoration-thickness:2px;">Underline</span> = Different Token Sampled
         </div>
         <div id="inspector-content">Hover over tokens to inspect details.</div>
     </div>
@@ -188,20 +189,27 @@ def generate_viz_html(history):
                 }}
                 el.style.backgroundColor = bg;
 
+                // Orthogonal Positional Logic and Token Flip Logic
                 if (isTransferred && isTransferredOrig) {{
-                    if (isFlipped) {{
-                        el.classList.add('flip-committed'); 
+                    el.classList.add('pos-both');
+                    if (isFlipped && batch.orig_sampled_tokens && batch.orig_sampled_tokens[tIdx] !== text) {{
+                        el.classList.add('token-flipped');
                         const cf = document.createElement('div');
                         cf.className = 'cf-badge';
                         cf.innerText = batch.orig_sampled_tokens[tIdx];
                         el.appendChild(cf);
-                    }} else {{
-                        el.classList.add('new'); 
                     }}
                 }} else if (isTransferred && !isTransferredOrig) {{
-                    el.classList.add('odd-pos'); 
+                    el.classList.add('pos-odd');
+                    if (isFlipped && batch.orig_sampled_tokens && batch.orig_sampled_tokens[tIdx] !== text) {{
+                        el.classList.add('token-flipped');
+                        const cf = document.createElement('div');
+                        cf.className = 'cf-badge';
+                        cf.innerText = batch.orig_sampled_tokens[tIdx];
+                        el.appendChild(cf);
+                    }}
                 }} else if (!isTransferred && isTransferredOrig) {{
-                    el.classList.add('orig-pos'); 
+                    el.classList.add('pos-std');
                     const cf = document.createElement('div');
                     cf.className = 'cf-badge orig-only';
                     cf.innerText = batch.orig_sampled_tokens[tIdx];
@@ -230,8 +238,8 @@ def generate_viz_html(history):
 
         if (batch.orig_sampled_tokens) {{
             const cText = batch.orig_sampled_tokens[tIdx];
-            if ((isTransferredOrig && !isTransferred) || (isTransferredOrig && cText !== batch.tokens[tIdx])) {{
-                html += `<div style="margin-bottom: 5px;"><span class="stat-label">Std Would've:</span> <span style="color:var(--danger);">${{cText}}</span></div>`;
+            if ((isTransferredOrig && !isTransferred) || ((isTransferredOrig || isTransferred) && cText !== batch.tokens[tIdx])) {{
+                html += `<div style="margin-bottom: 5px;"><span class="stat-label">Original Prediction:</span> <span style="color:var(--danger);">${{cText}}</span></div>`;
             }}
         }}
 
@@ -239,11 +247,14 @@ def generate_viz_html(history):
         </div>`;
 
         if (isTransferred && isTransferredOrig && isFlipped) {{
-             html += `<div class="badge" style="background: rgba(255, 75, 75, 0.2); color: var(--danger); border: 1px solid var(--danger);">💥 FLIPPED & DECODED</div>`;
+             html += `<div class="badge" style="background: rgba(255, 75, 75, 0.2); color: var(--danger); border: 1px solid var(--danger);">FLIPPED & DECODED</div>`;
         }} else if (isTransferred && !isTransferredOrig) {{
-             html += `<div class="badge" style="background: rgba(44, 147, 255, 0.2); color: var(--accent); border: 1px solid var(--accent);">🎯 NEW POSITION (ODD ONLY)</div>`;
+             html += `<div class="badge" style="background: rgba(44, 147, 255, 0.2); color: var(--accent); border: 1px solid var(--accent);">NEW POSITION (ODD)</div>`;
+             if (isFlipped) {{
+                 html += ` <div class="badge" style="background: rgba(255, 75, 75, 0.2); color: var(--danger); border: 1px solid var(--danger);">FLIPPED TOKEN</div>`;
+             }}
         }} else if (!isTransferred && isTransferredOrig) {{
-             html += `<div class="badge" style="background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px dashed #aaa;">👻 SKIPPED (Std Would Decode)</div>`;
+             html += `<div class="badge" style="background: rgba(255, 255, 255, 0.1); color: #aaa; border: 1px dashed #aaa;">SKIPPED POSITION</div>`;
         }}
 
         // TABLE 1: ODD FINAL PROBS
@@ -258,7 +269,7 @@ def generate_viz_html(history):
                 const p = probs[i];
                 const p_orig = orig_probs[i] !== undefined ? orig_probs[i] : 0;
 
-                let p_style = "color:var(--accent)"; // Base style
+                let p_style = "color:var(--accent)";
                 if (p > p_orig + 0.05) p_style = "color: var(--success); font-weight:bold;";
                 else if (p < p_orig - 0.05) p_style = "color: var(--danger)";
 
@@ -266,31 +277,6 @@ def generate_viz_html(history):
                     <td>${{t}}</td>
                     <td class="val" style="${{p_style}}">${{p.toFixed(4)}}</td>
                     <td class="val" style="color:#666">${{p_orig.toFixed(4)}}</td>
-                </tr>`;
-            }});
-            html += `</tbody></table>`;
-        }}
-
-        // TABLE 2: STANDARD PROBS
-        if (batch.top_k_orig_tokens && batch.top_k_orig_tokens[tIdx] && batch.top_k_orig_tokens[tIdx].length > 0) {{
-            html += `<h3>Standard Distribution (Top 5)</h3>
-            <table><thead><tr><th style="text-align:left">Token</th><th style="text-align:right">Std P</th><th style="text-align:right">ODD P</th></tr></thead><tbody>`;
-            const tops = batch.top_k_orig_tokens[tIdx];
-            const probs = batch.top_k_orig_probs[tIdx];
-            const final_probs = batch.top_k_orig_probs_final ? batch.top_k_orig_probs_final[tIdx] : [];
-
-            tops.forEach((t, i) => {{
-                const p_orig = probs[i];
-                const p_final = final_probs[i] !== undefined ? final_probs[i] : 0;
-
-                let p_style = "color:#aaa"; // Base style
-                if (p_orig > p_final + 0.05) p_style = "color: var(--danger); font-weight:bold;";
-                else if (p_orig < p_final - 0.05) p_style = "color: var(--success)";
-
-                html += `<tr>
-                    <td>${{t}}</td>
-                    <td class="val" style="color:#c9d1d9">${{p_orig.toFixed(4)}}</td>
-                    <td class="val" style="${{p_style}}">${{p_final.toFixed(4)}}</td>
                 </tr>`;
             }});
             html += `</tbody></table>`;
@@ -338,7 +324,7 @@ def generate_viz_html(history):
 
 
 if __name__ == '__main__':
-    st.set_page_config(layout="wide", page_title="ODD LLaDA Explorer")
+    st.set_page_config(layout="wide", page_title="DPP LLaDA Explorer")
 
     with st.spinner("Loading LLaDA Model..."):
         model, tokenizer, embedding_matrix, mask_token_id = get_model_resources()
@@ -346,7 +332,7 @@ if __name__ == '__main__':
     if "history_log" not in st.session_state:
         st.session_state.history_log = []
 
-    st.title("Orthogonal Diverse Diffusion Visualisation")
+    st.title("Determinantal Point Process (DPP) Explorer")
 
     with st.sidebar:
         st.header("1. Parameters")
@@ -356,16 +342,16 @@ if __name__ == '__main__':
         with c1:
             batch_size = st.number_input("Batch Size", 1, 64, 4)
             gen_len = st.number_input("Gen Length", 16, 128, 64)
-        alpha = st.number_input("Alpha (Diversity Step Size)", 0.0, 1024.0, 1.0)
+        alpha = st.number_input("Alpha (Diversity Step Size)", 0.0, 1024.0, 16.0)
         with c2:
-            steps = st.number_input("Steps", 10, 128, 32)
+            steps = st.number_input("Steps", 10, 100, 32)
             temp = st.number_input("Temperature", 0.0, 5.0, 1.0)
 
         quality_scale = st.number_input("Quality scale", 0.0, 100.0, 1.0)
 
         st.divider()
-        st.subheader("ODD Controls")
-        strategy_name = st.selectbox("Strategy", ["odd", "orthogonal_projection", "dpp", "random_probe"])
+        st.subheader("DPP Controls")
+        strategy_name = st.selectbox("Strategy", ["odd", "dpp", "orthogonal_projection", "random_probe",])
         target = st.selectbox("Kernel Target", ["logits", "embeddings"])
         pool = st.selectbox("Pooling", ["max", "mean", "positional"])
 

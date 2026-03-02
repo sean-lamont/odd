@@ -126,14 +126,16 @@
 </section>
 
 <section class="hero teaser">
-  <div class="container is-max-desktop">
-    <div class="hero-body has-text-centered">
-      <img src="assets/fig1.png" class="results-image" alt="ODD Overview Diagram" style="max-width: 80%;">
-      <h2 class="subtitle caption">
-        <strong>Figure 1:</strong> Unlike standard sampling which collapses to a single mode, ODD forces the model to explore orthogonal reasoning paths, finding valid solutions (green) where the baseline fails (red).
-      </h2>
+    <div class="columns is-centered">
+        <div class="column is-full-width" style="display: flex; flex-direction: column; align-items: center; padding: 0 20px;">
+            <div style="text-align: center; margin-bottom: 20px; width: 100%; max-width: 1200px;">
+                <img src="assets/demo.gif" alt="App Demo Dashboard" style="width: 100%; border-radius: 10px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.3);">
+            </div>
+            <p class="caption" style="max-width: 800px;">
+                <strong>Sampling Visualisation:</strong> Our approach (ODD) alters inference in real time with minimal overhead. Here we see how ODD modifies the sampling trajectory, with blue highlighting where changes are made, and red dashes highlighting the previous choice. We see that the resulting output explores a different approach to the first (iterative vs recursive).
+            </p>
+        </div>
     </div>
-  </div>
 </section>
 
 <section class="section" style="background-color: #f5f5f5;">
@@ -162,6 +164,13 @@
     <div class="columns is-centered has-text-centered">
       <div class="column is-four-fifths">
         <h2 class="title is-3 section-title">The Problem: Sampling Redundancy</h2>
+
+          <div style="text-align: center; margin: 2rem 0;">
+              <img src="assets/fig1.png" class="results-image" alt="ODD Overview Diagram" style="max-width: 80%;">
+              <p class="caption">
+                  <strong>Figure 1:</strong> Unlike standard sampling which collapses to a single mode, ODD forces the model to explore orthogonal reasoning paths, finding valid solutions (green) where the baseline fails (red).
+              </p>
+          </div>
         <div class="content has-text-justified">
           <p>
             In reasoning tasks like mathematics or coding, standard sampling methods typically rely on temperature scaling to induce variance. However, this is insufficient for effective exploration:
@@ -173,6 +182,8 @@
           <p>
             Finding correct reasoning paths requires structured exploration. DLMs offer a unique advantage: they refine the entire sequence simultaneously. This global view allows us to enforce meaningful diversity across the batch throughout generation without sacrificing quality.
           </p>
+
+
         </div>
       </div>
     </div>
@@ -308,7 +319,7 @@
                 </tbody>
             </table>
             <p class="caption">
-                <strong>Table 1:</strong> Pass@16 performance. The values show the range of performance achieved across different repulsion strengths \(\alpha\). ODD consistently improves upon the baseline across all temperature settings, with particularly strong gains in the greedy (\(\theta=0\)) and high-noise (\(\theta=2\)) regimes.
+                <strong>Table 2:</strong> Pass@16 performance. The values show the range of performance achieved across different repulsion strengths \(\alpha\). ODD consistently improves upon the baseline across all temperature settings, with particularly strong gains in the greedy (\(\theta=0\)) and high-noise (\(\theta=2\)) regimes.
             </p>
         </div>
 
@@ -350,40 +361,13 @@
                         </tbody>
                     </table>
                     <p class="caption">
-                        <strong>Table 2:</strong> Average wall-time execution per batch (\(B=16\)). ODD introduces negligible latency (< 6%) while significantly boosting Pass@16.
+                        <strong>Table 3:</strong> Average wall-time execution per batch (\(B=16\)). ODD introduces negligible latency (< 6%) while significantly boosting Pass@16.
                     </p>
                 </div>
             </div>
         </div>
 
     </div>
-</section>
-<section class="section">
-  <div class="container is-max-desktop">
-    <h2 class="title is-3 has-text-centered section-title">Interactive Visualisation</h2>
-    <div class="content has-text-justified">
-      <p>
-        Understanding how diversity interventions affect the generation trajectory is crucial. We provide an interactive Streamlit application (`app.py`) that allows users to visualise the diffusion process in real-time.
-      </p>
-    </div>
-
-    <div class="columns is-centered">
-        <div class="column is-four-fifths">
-            <div class="video-container">
-                <video poster="" id="demo-video" controls muted loop width="100%">
-                    <source src="assets/demo_video.mp4" type="video/mp4">
-                </video>
-                <div class="video-placeholder" style="display: none;">
-                    <i class="fas fa-play-circle fa-3x"></i>
-                    <p>Demo Video Coming Soon</p>
-                </div>
-            </div>
-            <p class="caption">
-                <strong>Figure 3:</strong> Screen recording of the <code>app.py</code> dashboard showing real-time generation dynamics.
-            </p>
-        </div>
-    </div>
-  </div>
 </section>
 
 <section class="section" id="BibTeX">

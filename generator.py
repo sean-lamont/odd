@@ -4,6 +4,8 @@ from typing import List, Dict, Tuple
 from strategies import DPPStrategy
 
 
+# loop through batch and cast to 64 bit, rather than run sequentially.
+# Saves significant VRAM with low time cost.
 def sample_gumbel_efficient(logits, temperature):
     if temperature == 0:
         return torch.argmax(logits, dim=-1)

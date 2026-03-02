@@ -1,0 +1,9 @@
+name: odd
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - cuda-nvcc
+  - pip

@@ -1,12 +1,8 @@
-
-
 # ODD: Orthogonal Diverse Diffusion
 **Official Repository for the paper "Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models".**
 
-
 ## Overview
 ![Approach Diagram](docs/assets/fig1.png)
-
 
 This repository contains the official implementation of **ODD (Orthogonal Diverse Diffusion)**, a training-free inference strategy designed to enhance the diversity and sample efficiency of Diffusion Language Models (such as LLaDA). 
 
@@ -23,15 +19,15 @@ Unlike standard sampling, which treats every generation independently and often 
 The codebase is structured as follows:
 
 ### Core Logic
-* **`odd_core.py`**: The main logic of our approach.
-    * `FeatureExtractor`: Extracts features from model logits during diffusion. Baseline is max-pool over logits, however alternative feature extraction methods could improve performance. 
-    * **Strategy Implementations**:
-        * `BatchedOrthogonalProjectionStrategy`: The main **ODD** algorithm. Sequentially projects samples away from the history of the batch.
-        * `JointStrategy`: The **DiverseFlow** baseline (DPP-based global optimisation).
-        * `BaselineStrategy`: Standard independent sampling.
-    * `DPPGenerator`: Manages the iterative diffusion loop, applying the selected strategy at each timestep.
+* **`feature_extractor.py`**: Contains the `FeatureExtractor`, which extracts features from model logits during diffusion. Baseline is max-pool over logits, however alternative feature extraction methods could improve performance. 
+* **`strategies.py`**: Contains the diversity strategy implementations:
+    * `ODDStrategy`: The main **ODD** algorithm. Sequentially projects samples away from the history of the batch.
+    * `DPPStrategy`: The **DiverseFlow** baseline (DPP-based global optimisation).
+    * `BaselineStrategy`: Standard independent sampling.
+* **`generator.py`**: Contains `DiverseGenerator`, which manages the iterative diffusion loop and applies the selected strategy at each timestep. 
+* **`app_generator.py`**: Contains `AppGenerator`, used exclusively by the Streamlit app to track counterfactuals and logging metrics.
 * **`odd_gen.py`**: The primary entry point for single run text generation. It loads the model, configures the strategy via Hydra, and produces outputs for a given prompt.
-* **`utils.py`**: Contains utility functions for evaluation, specifically `calculate_diversity_score` which uses `SentenceTransformer` to measure cosine similarity between generated outputs.
+* **`utils.py`**: Utility functions.
 
 ### Benchmarking & Evaluation
 Run these scripts to replicate the experiments in the paper. They handle dataset loading, answer extraction, and Pass@k calculation, and log to Weights and Biases (WandB). Optuna is used to control and synchronize the sweeps in multi-node and multi-process setups, currently using a grid sweep for the paper results. This can easily be changed to e.g. TPESampler to find the best hyperparameters for a given setup more quickly. 
@@ -39,9 +35,28 @@ Run these scripts to replicate the experiments in the paper. They handle dataset
 * **`sweep_human_eval.py`**: Evaluation over the HumanEval coding benchmark. It interfaces with the local `human_eval` directory to execute and validate generated code samples.
 
 ### Visualization & Analysis
-* **`app.py`**: An interactive Streamlit application, which visualises the diffusion process in real time, plotting entropy and repulsion forces step-by-step to understand how various diversity approaches alter the generation trajectory.
+* **`app.py`**: An interactive Streamlit application to visualize the diffusion process (see details below).
 * **`analyse_results/`**: Contains scripts to download WandB run data and generate the tables/plots found in the paper, as well as profiling the overhead. 
 * **`conf/`**: Stores the Hydra configuration files.
 * **`human_eval/`**: A fork of the official HumanEval evaluation harness, used by `sweep_human_eval.py` to run code execution tests.
 
-## Installation
+## Interactive Visualization (App)
+To understand exactly how diversity interventions alter the model's generation trajectory, we provide an interactive visualisation tool. 
+It calculates a "counterfactual" with the ODD generation to show exactly what standard sampling would have done at every step, and how the given diversity strategy and settings changes the trajectory. 
+
+**How to use:**
+```bash
+streamlit run app.py
+```
+
+## Installation 
+Install the base conda and pip requirements: 
+```bash 
+conda env create -f environment.yml
+conda activate odd
+pip install -r requirements.txt
+```
+Install `flash_attn` and `triton` separately if supported by your system.
+
+
+

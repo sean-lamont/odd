@@ -1,0 +1,6 @@
+name: "odd"
+alpha: 16.0
+quality_scale: 1.0
+pool: "max"
+target: "logits"
+top_k: 0

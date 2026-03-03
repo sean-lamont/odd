@@ -64,7 +64,7 @@ def get_humaneval_prompts(num_samples=20):
 
 def main():
     parser = argparse.ArgumentParser(description="Generate ODD Demo Grids")
-    parser.add_argument("--strategy", type=str, choices=["baseline", "batched_orth", "joint", "all"], default="all",
+    parser.add_argument("--strategy", type=str, choices=["baseline", "odd", "dpp", "all"], default="all",
                         help="Which strategy to run")
     parser.add_argument("--dataset", type=str, choices=["GSM8K", "HumanEval", "all"], default="all",
                         help="Which dataset to run")

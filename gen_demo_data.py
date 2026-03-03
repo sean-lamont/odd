@@ -85,7 +85,7 @@ def main():
     alphas = [8.0, 16.0, 128.0]
 
     temps_to_run = [0.0, 1.0, 2.0] if args.temp == -1.0 else [args.temp]
-    strats_to_run = ["baseline", "batched_orth", "joint"] if args.strategy == "all" else [args.strategy]
+    strats_to_run = ["baseline", "odd", "dpp"] if args.strategy == "all" else [args.strategy]
 
     datasets_to_run = {}
     if args.dataset in ["GSM8K", "all"]:

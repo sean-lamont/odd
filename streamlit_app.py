@@ -1,13 +1,9 @@
 import os
 import json
+import zipfile
 import altair as alt
 import pandas as pd
 import streamlit as st
-
-'''
-Streamlit app to visualize pre-computed LLaDA diversity generation trajectories.
-Zero-GPU Viewer Edition.
-'''
 
 def generate_viz_html(history):
     json_data = json.dumps(history)
@@ -69,12 +65,10 @@ def generate_viz_html(history):
             100% {{ box-shadow: 0 0 0 0 rgba(44, 147, 255, 0); }}
         }}
 
-        /* Structural positioning classes */
         .pos-both {{ border: 1px solid var(--gold); animation: pulse-gold 1s infinite; }}
         .pos-odd {{ border: 1px solid var(--accent); background: rgba(44, 147, 255, 0.15) !important; animation: pulse-blue 1s infinite; }}
         .pos-std {{ border: 1px dashed #ff6b6b; background: #222 !important; }}
 
-        /* Token modification class */
         .token-flipped {{
             text-decoration: underline;
             text-decoration-color: var(--danger);
@@ -82,7 +76,6 @@ def generate_viz_html(history):
             text-underline-offset: 3px;
         }}
 
-        /* Probability Tables */
         table {{ width: 100%; border-collapse: collapse; font-size: 0.85em; margin-bottom: 10px; background: #1a1d24; border-radius: 4px; overflow: hidden; }}
         th, td {{ padding: 4px 6px; border-bottom: 1px solid #333; }}
         th {{ background: #2a2e37; color: #8b949e; font-weight: normal; }}
@@ -94,7 +87,7 @@ def generate_viz_html(history):
         <h2>Token Inspector</h2>
         <div style="color:#666; font-size:0.9em; margin-bottom:10px; line-height:1.6;">
             <span style="color:var(--gold); border: 1px solid var(--gold); padding: 0 2px;">Gold Border</span> = Decoded by both<br>
-            <span style="color:var(--accent); border: 1px solid var(--accent); padding: 0 2px;">Blue Border</span> = Position ONLY unmasked by ODD<br>
+            <span style="color:var(--accent); border: 1px solid var(--accent); padding: 0 2px;">Blue Border</span> = Position ONLY unmasked by Intervention<br>
             <span style="color:#ff6b6b; border:1px dashed #ff6b6b; padding:0 2px;">Mask</span> = Standard WOULD have unmasked<br>
             <span style="text-decoration:underline; text-decoration-color:var(--danger); text-decoration-thickness:2px;">Underline</span> = Token string Flipped
         </div>
@@ -163,7 +156,6 @@ def generate_viz_html(history):
                 }}
                 el.style.backgroundColor = bg;
 
-                // Orthogonal Positional Logic and Token Flip Logic
                 if (isTransferred && isTransferredOrig) {{
                     el.classList.add('pos-both');
                     if (isFlipped && batch.orig_sampled_tokens && batch.orig_sampled_tokens[tIdx] !== text) {{
@@ -223,7 +215,7 @@ def generate_viz_html(history):
         if (isTransferred && isTransferredOrig && isFlipped) {{
              html += `<div class="badge" style="background: rgba(255, 75, 75, 0.2); color: var(--danger); border: 1px solid var(--danger);">FLIPPED & DECODED</div>`;
         }} else if (isTransferred && !isTransferredOrig) {{
-             html += `<div class="badge" style="background: rgba(44, 147, 255, 0.2); color: var(--accent); border: 1px solid var(--accent);">NEW POSITION (ODD)</div>`;
+             html += `<div class="badge" style="background: rgba(44, 147, 255, 0.2); color: var(--accent); border: 1px solid var(--accent);">NEW POSITION</div>`;
              if (isFlipped) {{
                  html += ` <div class="badge" style="background: rgba(255, 75, 75, 0.2); color: var(--danger); border: 1px solid var(--danger);">FLIPPED TOKEN</div>`;
              }}
@@ -232,8 +224,8 @@ def generate_viz_html(history):
         }}
 
         if (batch.top_k_tokens && batch.top_k_tokens[tIdx] && batch.top_k_tokens[tIdx].length > 0) {{
-            html += `<h3>ODD Distribution (Top 5)</h3>
-            <table><thead><tr><th style="text-align:left">Token</th><th style="text-align:right">ODD P</th><th style="text-align:right">Std P</th></tr></thead><tbody>`;
+            html += `<h3>Intervention Dist (Top 5)</h3>
+            <table><thead><tr><th style="text-align:left">Token</th><th style="text-align:right">New P</th><th style="text-align:right">Std P</th></tr></thead><tbody>`;
             const tops = batch.top_k_tokens[tIdx];
             const probs = batch.top_k_probs[tIdx];
             const orig_probs = batch.top_k_probs_original ? batch.top_k_probs_original[tIdx] : [];
@@ -256,8 +248,8 @@ def generate_viz_html(history):
         }}
 
         if (batch.top_k_orig_tokens && batch.top_k_orig_tokens[tIdx] && batch.top_k_orig_tokens[tIdx].length > 0) {{
-            html += `<h3>Standard Distribution (Top 5)</h3>
-            <table><thead><tr><th style="text-align:left">Token</th><th style="text-align:right">Std P</th><th style="text-align:right">ODD P</th></tr></thead><tbody>`;
+            html += `<h3>Standard Dist (Top 5)</h3>
+            <table><thead><tr><th style="text-align:left">Token</th><th style="text-align:right">Std P</th><th style="text-align:right">New P</th></tr></thead><tbody>`;
             const tops = batch.top_k_orig_tokens[tIdx];
             const probs = batch.top_k_orig_probs[tIdx];
             const final_probs = batch.top_k_orig_probs_final ? batch.top_k_orig_probs_final[tIdx] : [];
@@ -319,86 +311,224 @@ def generate_viz_html(history):
 </html>
 """
 
-def load_local_demos(demo_dir="demo_histories"):
-    """Loads any json files found in the demo_histories folder."""
-    loaded_data = []
-    if os.path.exists(demo_dir):
-        for filename in sorted(os.listdir(demo_dir)):
-            if filename.endswith(".json"):
-                try:
-                    with open(os.path.join(demo_dir, filename), "r") as f:
-                        data = json.load(f)
-                        if isinstance(data, list):
-                            loaded_data.extend(data)
+
+@st.cache_data
+def scan_zip(zip_path="demo_histories.zip"):
+    """Scans the zip file and builds metadata without extracting anything to disk."""
+    metadata = []
+    if os.path.exists(zip_path):
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            for filepath in z.namelist():
+                if filepath.endswith(".json"):
+                    filename = os.path.basename(filepath)
+                    parts = filename.replace(".json", "").split("_")
+                    try:
+                        dataset = parts[0]
+                        if "Problem" in filename:
+                            prob_id = f"Problem_{parts[2]}"
+                            strat_idx = 3
                         else:
-                            loaded_data.append(data)
-                except Exception as e:
-                    st.error(f"Failed to load {filename}: {e}")
-    return loaded_data
+                            prob_id = "_".join(parts[1:-3])
+                            strat_idx = -3
+
+                        strat = parts[strat_idx]
+                        if strat == "batched":
+                            strat = "batched_orth"
+                            strat_idx += 1
+
+                        alpha = float(parts[-2].replace("a", ""))
+                        temp = float(parts[-1].replace("t", ""))
+
+                        metadata.append({
+                            "filepath": filepath,
+                            "dataset": dataset,
+                            "problem_id": prob_id,
+                            "strategy": strat,
+                            "alpha": alpha,
+                            "temp": temp
+                        })
+                    except Exception as e:
+                        pass
+    return pd.DataFrame(metadata)
+
+
+def load_run_from_zip(filepath, zip_path="demo_histories.zip"):
+    """Reads a single JSON file directly out of the compressed archive into memory."""
+    try:
+        with zipfile.ZipFile(zip_path, 'r') as z:
+            with z.open(filepath) as f:
+                data = json.loads(f.read().decode('utf-8'))
+                if isinstance(data, list):
+                    return data[0]
+                return data
+    except Exception as e:
+        st.error(f"Error loading file from zip: {e}")
+        return None
+
 
 if __name__ == '__main__':
-    st.set_page_config(layout="wide", page_title="ODD Viewer")
+    st.set_page_config(layout="wide", page_title="Diverse Language Diffusion Demo")
 
-    # Initialize state and load default demos
-    if "history_log" not in st.session_state:
-        st.session_state.history_log = load_local_demos()
+    # HEADER WITH LINKS
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #1e2127; border-radius: 8px; margin-bottom: 20px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #c9d1d9;">Diverse Language Diffusion with ODD</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
-    st.title("Determinantal Point Process (DPP) Explorer - Viewer Mode")
+    st.markdown(
+        """
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background-color: #1e2127; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: flex; gap: 15px;">
+                <a href="https://arxiv.org/abs/TODO" target="_blank" style="text-decoration: none; color: #2c93ff; font-weight: bold;">[arXiv]</a>
+                <a href="https://github.com/sean-lamont/odd" target="_blank" style="text-decoration: none; color: #2c93ff; font-weight: bold;">[Code]</a>
+                <a href="https://sean-lamont.github.io/odd/" target="_blank" style="text-decoration: none; color: #2c93ff; font-weight: bold;">[Project Page]</a>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    # DESCRIPTION AND GUIDE
+    with st.expander("About ODD & Demo Guide", expanded=False):
+        st.markdown(
+            """
+            ### What is ODD?
+            **Orthogonal Diverse Diffusion (ODD)** is a training-free intervention for Diffusion Language Models (DLMs). 
+            Traditional sampling often suffers from **mode collapse** in batch generation, wasting compute on redundant 
+            failure paths. ODD forces structural diversity by repelling each sample from the feature space of 
+            previously generated samples in the same batch.
+
+            ### Demo Guide
+            This tool visualises the **real-time trajectory** of the diffusion process.
+
+            **1. Sidebar Controls:**
+            * **Problem:** Choose from HumanEval (Coding) or GSM8K (Math) benchmarks.
+            * **Temperature (θ):** Lower values are more deterministic; θ=0.0 is greedy.
+            * **Intervention Strategy:** Which diversity approach to use. Options are:
+            * * `odd` (our approach)
+            * * `dpp` (Determinantal Point Process based objective, previously applied by [DiverseFlow](https://openaccess.thecvf.com/content/CVPR2025/html/Morshed_DiverseFlow_Sample-Efficient_Diverse_Mode_Coverage_in_Flows_CVPR_2025_paper.html) for images)
+            * * `baseline`, standard temperature sampling.
+            * **Alpha (α):** The diversity strength. Higher α forces stronger repulsion.
+
+            **2. Visualisation Interpretation:**
+            * **Play/Slider:** Scrub through the 32 denoising steps.
+            * **Gold Border:** A position that both standard sampling and ODD agreed to unmask.
+            * **Blue Border:** A position unmasked **only** due to the ODD intervention.
+            * **Dashed Box:** A position standard sampling *would* have unmasked, but ODD skipped.
+            * **Red Underline:** A "flipped" token—where the intervention changed the actual string output.
+
+            **3. Token Inspector:**
+            Hover over any cell to see the **Counterfactual Comparison**. You can see exactly what the 
+            baseline model would have chosen for that slot compared to the current diverse output.
+            """
+        )
+
+    # 1. Scan the zip file to get available options
+    df_meta = scan_zip()
 
     with st.sidebar:
-        st.header("ODD Generation Viewer")
-        st.write("This is a lightweight viewer for pre-computed orthogonal diverse diffusion runs. Explore how the generation trajectory changes dynamically compared to standard diffusion sampling.")
+        st.header("Configure View")
+
+        if df_meta.empty:
+            st.warning("No generated zip file found. Ensure 'demo_histories.zip' is in the root directory.")
+            st.stop()
+
+        # 1. Dataset Filter
+        datasets = sorted(df_meta['dataset'].unique().tolist())
+        selected_ds = st.selectbox("1. Select Dataset", datasets)
+        ds_df = df_meta[df_meta['dataset'] == selected_ds]
+
+        # 2. Problem Filter
+        prob_ids = sorted(ds_df['problem_id'].unique().tolist(),
+                          key=lambda x: int(x.split('_')[-1]) if 'Problem_' in x else x)
+        selected_prob = st.selectbox("2. Select Problem", prob_ids)
+        prob_df = ds_df[ds_df['problem_id'] == selected_prob]
+
+        # 3. Dynamic Temperature Filter
+        available_temps = sorted(prob_df['temp'].unique().tolist())
+        selected_temp = st.selectbox("3. Temperature (θ)", available_temps)
+        temp_df = prob_df[prob_df['temp'] == selected_temp]
+
+        # 4. Dynamic Strategy Filter
+        available_strats = sorted(temp_df['strategy'].unique().tolist())
+        strat_map = {
+            "baseline": "Standard Baseline",
+            "batched_orth": "ODD (Orthogonal Repulsion)",
+            "joint": "DiverseFlow (Joint DPP)"
+        }
+        reverse_map = {v: k for k, v in strat_map.items()}
+        disp_strats = [strat_map.get(s, s) for s in available_strats]
+
+        selected_disp_strat = st.selectbox("4. Intervention Strategy", disp_strats)
+        selected_strat = reverse_map.get(selected_disp_strat, selected_disp_strat)
+        strat_df = temp_df[temp_df['strategy'] == selected_strat]
+
+        # 5. Dynamic Alpha Filter
+        if selected_strat == "baseline":
+            st.info("Alpha is inherently 0.0 for standard baseline sampling.")
+            target_file = strat_df.iloc[0]['filepath'] if not strat_df.empty else None
+        else:
+            available_alphas = sorted(strat_df['alpha'].unique().tolist())
+            selected_alpha = st.selectbox("5. Alpha (Diversity Strength)", available_alphas)
+            final_df = strat_df[strat_df['alpha'] == selected_alpha]
+            target_file = final_df.iloc[0]['filepath'] if not final_df.empty else None
 
         st.divider()
+        st.write(f"*File matched: {os.path.basename(target_file) if target_file else 'None'}*")
 
-        st.header("1. Select a Run")
-        run_options = [r["id"] for r in st.session_state.history_log]
-        selected_run_id = st.selectbox("Pre-computed Examples", run_options, index=0 if run_options else None)
-        current_run = next((r for r in st.session_state.history_log if r["id"] == selected_run_id), None)
+    # Lazy Load ONLY the target file directly from the ZIP
+    if target_file:
+        with st.spinner("Loading generation data..."):
+            current_run = load_run_from_zip(target_file)
 
-        st.divider()
+        if current_run:
+            st.markdown(f"### Problem Context: `{selected_prob}`")
+            if "params" in current_run and "prompt" in current_run["params"]:
+                st.markdown(
+                    f"""
+                    <div style="background-color: #1a1c23; padding: 15px; border-radius: 8px; border: 1px solid #333; margin-bottom: 20px; font-family: monospace; white-space: pre-wrap; line-height: 1.5; color: #e6e6e6;">{current_run["params"]["prompt"]}</div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
-        st.header("2. Upload Custom Run")
-        uploaded_file = st.file_uploader("Upload History JSON", type="json")
-        if uploaded_file is not None:
-            try:
-                data = json.load(uploaded_file)
-                if isinstance(data, list):
-                    st.session_state.history_log.extend(data)
+            tabs = st.tabs(["Visualization", "Metrics (Charts)", "Final Output"])
+
+            with tabs[0]:
+                st.components.v1.html(generate_viz_html(current_run["data"]), height=600, scrolling=True)
+
+            with tabs[1]:
+                st.subheader("Force & Entropy Over Time")
+                chart_data = [{"step": frame["step"], "batch": f"Batch {b_idx}",
+                               "entropy": sum([e for e in batch["entropy"] if e > 0]) / (
+                                           len([e for e in batch["entropy"] if e > 0]) or 1),
+                               "force": sum([f for f in batch["force"] if f > 0]) / (
+                                           len([f for f in batch["force"] if f > 0]) or 1)} for frame in
+                              current_run["data"] for b_idx, batch in enumerate(frame["batches"])]
+                df = pd.DataFrame(chart_data)
+                if not df.empty:
+                    st.altair_chart(alt.Chart(df).mark_line(point=True).encode(x='step', y='force', color='batch',
+                                                                               tooltip=['step', 'batch',
+                                                                                        'force']).properties(
+                        title="Average Repulsion Force per Step", height=300), use_container_width=True)
+                    st.altair_chart(alt.Chart(df).mark_line(point=True).encode(x='step', y='entropy', color='batch',
+                                                                               tooltip=['step', 'batch',
+                                                                                        'entropy']).properties(
+                        title="Average Entropy per Step", height=300), use_container_width=True)
                 else:
-                    st.session_state.history_log.append(data)
-                st.success("History loaded! Select it from the dropdown above.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error loading file: {e}")
+                    st.info("No metric data available.")
 
-    if current_run:
-        st.markdown(f"**Viewing Run:** `{current_run['id']}`")
-
-        # Display Prompt
-        if "params" in current_run and "prompt" in current_run["params"]:
-            with st.expander("Show Prompt"):
-                st.code(current_run["params"]["prompt"], language="text")
-
-        tabs = st.tabs(["Visualization", "Metrics (Charts)", "Final Output"])
-
-        with tabs[0]:
-            st.components.v1.html(generate_viz_html(current_run["data"]), height=600, scrolling=True)
-
-        with tabs[1]:
-            st.subheader("Force & Entropy Over Time")
-            chart_data = [{"step": frame["step"], "batch": f"Batch {b_idx}", "entropy": sum([e for e in batch["entropy"] if e>0])/(len([e for e in batch["entropy"] if e>0]) or 1), "force": sum([f for f in batch["force"] if f>0])/(len([f for f in batch["force"] if f>0]) or 1)} for frame in current_run["data"] for b_idx, batch in enumerate(frame["batches"])]
-            df = pd.DataFrame(chart_data)
-            if not df.empty:
-                st.altair_chart(alt.Chart(df).mark_line(point=True).encode(x='step', y='force', color='batch', tooltip=['step', 'batch', 'force']).properties(title="Average Repulsion Force per Step", height=300), use_container_width=True)
-                st.altair_chart(alt.Chart(df).mark_line(point=True).encode(x='step', y='entropy', color='batch', tooltip=['step', 'batch', 'entropy']).properties(title="Average Entropy per Step", height=300), use_container_width=True)
-            else:
-                st.info("No metric data available.")
-
-        with tabs[2]:
-            st.subheader("Clean Output Text")
-            for i, batch in enumerate(current_run["data"][-1]["batches"]):
-                with st.expander(f"Batch {i}", expanded=True):
-                    st.code("".join([t for t, is_spec in zip(batch["tokens"], batch["is_special"]) if not is_spec]).replace("⏎", "\n"), language="text")
+            with tabs[2]:
+                st.subheader("Clean Output Text")
+                for i, batch in enumerate(current_run["data"][-1]["batches"]):
+                    with st.expander(f"Batch {i}", expanded=True):
+                        st.code("".join(
+                            [t for t, is_spec in zip(batch["tokens"], batch["is_special"]) if not is_spec]).replace("⏎",
+                                                                                                                    "\n"),
+                                language="text")
+        else:
+            st.error("File found but could not be parsed from zip archive.")
     else:
-        st.info("No pre-computed runs found. Upload a history file or place JSON files in the 'demo_histories' folder.")
+        st.error("No valid run found for this specific combination of hyper-parameters.")

@@ -417,7 +417,8 @@ if __name__ == '__main__':
             previously generated samples in the same batch.
 
             ### Demo Guide
-            This tool visualises the **real-time trajectory** of the diffusion process.
+            This tool visualises the trajectory of the diffusion process under inference time sampling interventions,
+            which modify the logits of the base model ([LLaDA-8B-Instruct](https://github.com/ML-GSAI/LLaDA)) at each step. 
 
             **1. Sidebar Controls:**
             * **Problem:** Choose from HumanEval (Coding) or GSM8K (Math) benchmarks.
@@ -433,7 +434,7 @@ if __name__ == '__main__':
             * **Gold Border:** A position that both standard sampling and ODD agreed to unmask.
             * **Blue Border:** A position unmasked **only** due to the ODD intervention.
             * **Dashed Box:** A position standard sampling *would* have unmasked, but ODD skipped.
-            * **Red Underline:** A "flipped" token—where the intervention changed the actual string output.
+            * **Red Underline:** A "flipped" token, where the intervention changed the actual string output.
 
             **3. Token Inspector:**
             Hover over any cell to see the **Counterfactual Comparison**. You can see exactly what the 
@@ -471,8 +472,8 @@ if __name__ == '__main__':
         available_strats = sorted(temp_df['strategy'].unique().tolist())
         strat_map = {
             "baseline": "Standard Baseline",
-            "batched_orth": "ODD (Orthogonal Repulsion)",
-            "joint": "DiverseFlow (Joint DPP)"
+            "odd": "ODD (Orthogonal Repulsion)",
+            "dpp": "DiverseFlow (Joint DPP)"
         }
         reverse_map = {v: k for k, v in strat_map.items()}
         disp_strats = [strat_map.get(s, s) for s in available_strats]

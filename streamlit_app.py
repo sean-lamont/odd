@@ -510,7 +510,7 @@ if __name__ == '__main__':
                     unsafe_allow_html=True
                 )
 
-            tabs = st.tabs(["Visualization", "Metrics (Charts)", "Final Output"])
+            tabs = st.tabs(["Visualisation", "Metrics (Charts)", "Final Output"])
 
             with tabs[0]:
                 st.components.v1.html(generate_viz_html(current_run["data"]), height=600, scrolling=True)

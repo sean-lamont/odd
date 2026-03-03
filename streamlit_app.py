@@ -312,22 +312,36 @@ def generate_viz_html(history):
 """
 
 
+# Absolute pathing for Hugging Face environment
+BASE_PATH = os.path.dirname(__file__)
+ZIP_NAME = "demo_histories.zip"
+FULL_ZIP_PATH = os.path.join(BASE_PATH, ZIP_NAME)
+
+
 @st.cache_data
-def scan_zip(zip_path="demo_histories.zip"):
-    """Scans the zip file and builds metadata without extracting anything to disk."""
+def scan_zip(zip_path=FULL_ZIP_PATH):
     metadata = []
-    if os.path.exists(zip_path):
+    if not os.path.exists(zip_path):
+        st.error(f"ZIP file not found at: {zip_path}")
+        return pd.DataFrame()
+
+    try:
         with zipfile.ZipFile(zip_path, 'r') as z:
             for filepath in z.namelist():
-                if filepath.endswith(".json"):
+                # Ignore folder entries and hidden files
+                if filepath.endswith(".json") and "__MACOSX" not in filepath:
+                    # Get just the filename, stripping any internal folder prefix
                     filename = os.path.basename(filepath)
                     parts = filename.replace(".json", "").split("_")
+
                     try:
                         dataset = parts[0]
+                        # Handling "Problem_X" vs Task IDs
                         if "Problem" in filename:
                             prob_id = f"Problem_{parts[2]}"
                             strat_idx = 3
                         else:
+                            # Fallback for HumanEval task IDs
                             prob_id = "_".join(parts[1:-3])
                             strat_idx = -3
 
@@ -336,35 +350,36 @@ def scan_zip(zip_path="demo_histories.zip"):
                             strat = "batched_orth"
                             strat_idx += 1
 
+                        # Extract alpha (a) and temp (t)
                         alpha = float(parts[-2].replace("a", ""))
                         temp = float(parts[-1].replace("t", ""))
 
                         metadata.append({
-                            "filepath": filepath,
+                            "filepath": filepath,  # The full path inside the zip
                             "dataset": dataset,
                             "problem_id": prob_id,
                             "strategy": strat,
                             "alpha": alpha,
                             "temp": temp
                         })
-                    except Exception as e:
-                        pass
+                    except Exception:
+                        continue
+    except Exception as e:
+        st.error(f"Failed to open ZIP archive: {e}")
+
     return pd.DataFrame(metadata)
 
 
-def load_run_from_zip(filepath, zip_path="demo_histories.zip"):
-    """Reads a single JSON file directly out of the compressed archive into memory."""
+def load_run_from_zip(internal_filepath, zip_path=FULL_ZIP_PATH):
+    """Reads JSON directly from the ZIP archive."""
     try:
         with zipfile.ZipFile(zip_path, 'r') as z:
-            with z.open(filepath) as f:
+            with z.open(internal_filepath) as f:
                 data = json.loads(f.read().decode('utf-8'))
-                if isinstance(data, list):
-                    return data[0]
-                return data
+                return data[0] if isinstance(data, list) else data
     except Exception as e:
-        st.error(f"Error loading file from zip: {e}")
+        st.error(f"Error reading {internal_filepath} from ZIP: {e}")
         return None
-
 
 if __name__ == '__main__':
     st.set_page_config(layout="wide", page_title="Diverse Language Diffusion Demo")

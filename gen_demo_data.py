@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import random
 import torch
@@ -13,6 +14,14 @@ from feature_extractor import FeatureExtractor
 from strategies import get_strategy
 from app_generator import AppGenerator
 
+# HumanEval local import matching sweep_human_eval.py
+sys.path.append(os.path.join(os.getcwd(), "human-eval"))
+try:
+    from human_eval.data import read_problems
+except ImportError:
+    print("Error: Could not import human_eval. Make sure the human-eval directory exists.")
+    sys.exit(1)
+
 
 def load_config():
     if GlobalHydra.instance().is_initialized():
@@ -24,21 +33,36 @@ def load_config():
 
 def get_gsm8k_prompts(num_samples=20):
     print("Loading GSM8K dataset...")
-    ds = load_dataset("openai/gsm8k", "main", split="test")
+    # Matching sweep_gsm8k.py loading
+    dataset = load_dataset("gsm8k", "main", split="test")
     random.seed(42)
     # Randomly select out of the first 200
-    indices = random.sample(range(min(200, len(ds))), num_samples)
-    # Extracting 'question' specifically so the 'answer' isn't leaked into the prompt string
-    return [{"id": f"Problem_{idx + 1}", "prompt": f"Question: {ds[i]['question']}\nLet's think step by step.\nAnswer:"}
-            for idx, i in enumerate(indices)]
+    indices = random.sample(range(min(200, len(dataset))), num_samples)
+
+    prompts = []
+    for idx, i in enumerate(indices):
+        q = dataset[i]['question']
+        formatted_prompt = f"Question: {q}\nLet's think step by step.\nAnswer:"
+        prompts.append({"id": f"Problem_{idx + 1}", "prompt": formatted_prompt})
+    return prompts
 
 
 def get_humaneval_prompts(num_samples=20):
     print("Loading HumanEval dataset...")
-    ds = load_dataset("openai_humaneval", split="test")
+    # Matching sweep_human_eval.py loading
+    problems_dict = read_problems()
+    problem_list = list(problems_dict.values())
+
     random.seed(42)
-    indices = random.sample(range(len(ds)), num_samples)
-    return [{"id": f"Problem_{idx + 1}", "prompt": ds[i]["prompt"]} for idx, i in enumerate(indices)]
+    indices = random.sample(range(min(164, len(problem_list))), num_samples)
+
+    prompts = []
+    for idx, i in enumerate(indices):
+        problem = problem_list[i]
+        # Use actual task_id (e.g. HumanEval/0) but make it file-safe
+        safe_id = problem['task_id'].replace("/", "_")
+        prompts.append({"id": safe_id, "prompt": problem['prompt']})
+    return prompts
 
 
 def main():
@@ -80,7 +104,7 @@ def main():
             if os.path.exists(filename):
                 continue  # Skip if already generated (allows resuming if interrupted)
 
-            for temp in tqdm(temps):
+            for temp in temps:
                 # 1. Run Baseline (Standard Sampling)
                 strat_obj = get_strategy("baseline", 0.0, 1.0, extractor)
                 generator = AppGenerator(model, tokenizer, strat_obj, mask_token_id)
@@ -99,8 +123,8 @@ def main():
                 })
 
                 # 2. Run ODD & Joint DPP Strategies
-                for strat_name in tqdm(strategies):
-                    for alpha in tqdm(alphas):
+                for strat_name in strategies:
+                    for alpha in alphas:
                         strat_obj = get_strategy(strat_name, alpha, 1.0, extractor)
                         generator = AppGenerator(model, tokenizer, strat_obj, mask_token_id)
                         history, _ = generator.generate(prompt, batch_size, steps, gen_len, temp)

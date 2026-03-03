@@ -324,7 +324,7 @@ def generate_viz_html(history):
 
 
 if __name__ == '__main__':
-    st.set_page_config(layout="wide", page_title="DPP LLaDA Explorer")
+    st.set_page_config(layout="wide", page_title="ODD Demo")
 
     with st.spinner("Loading LLaDA Model..."):
         model, tokenizer, embedding_matrix, mask_token_id = get_model_resources()
@@ -332,7 +332,7 @@ if __name__ == '__main__':
     if "history_log" not in st.session_state:
         st.session_state.history_log = []
 
-    st.title("Determinantal Point Process (DPP) Explorer")
+    st.title("Orthogonal Diverse Diffusion (ODD) Demo")
 
     with st.sidebar:
         st.header("1. Parameters")

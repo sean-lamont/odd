@@ -6,7 +6,7 @@
 
 <div align="center">
 
-[![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/TODO)
+[![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2603.04893)
 [![Project Website](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)](https://sean-lamont.github.io/odd/)
 [![Live Demo](https://img.shields.io/badge/Demo-Hugging_Face-blue.svg?style=flat-square)](https://huggingface.co/spaces/sean-lamont/ODD-Demo)
 [![Weights & Biases GSM8K](https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_gsm8k)

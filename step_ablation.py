@@ -1,4 +1,5 @@
 import time
+import torch
 import sys
 import os
 import hydra
@@ -18,6 +19,15 @@ from sweep_human_eval import clean_code_for_harness
 sys.path.append(os.path.join(os.getcwd(), "human-eval"))
 from human_eval.data import read_problems
 from human_eval.execution import check_correctness
+
+
+
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers.modeling_utils import PreTrainedModel
+from transformers.configuration_utils import PretrainedConfig
+from peft import PeftModel
+import tqdm
+
 
 # Set the target task here: "gsm8k" or "humaneval"
 TARGET_TASK = "gsm8k"
@@ -138,7 +148,7 @@ def main(base_cfg):
                     diversity_scores = []
                     gen_times = []
 
-                    for i in problem_indices:
+                    for i in tqdm(problem_indices):
                         start_t = time.time()
 
                         if TARGET_TASK == "gsm8k":

@@ -8,7 +8,7 @@ class FeatureExtractor:
                  pooling_method: str = 'max',
                  top_k: int = 0,
                  seq_len_scale: int = 64,
-                 use_confidence_weighting: bool = True,
+                 use_confidence_weighting: bool = True, # whether to use quality score in the objective
                  ignore_token_ids: List = []):
 
         self.embedding_matrix = embedding_matrix

@@ -1,15 +1,16 @@
-import sys
-import torch
+import functools
 import os
+import sys
 import time
+
 import hydra
-import optuna
-import wandb
 import numpy as np
+import optuna
+import torch
 from omegaconf import OmegaConf
 from sklearn.model_selection import ParameterGrid
-import functools
 
+import wandb
 from feature_extractor import FeatureExtractor
 from generator import DiverseGenerator
 from strategies import get_strategy
@@ -22,11 +23,8 @@ from odd_gen import load_model
 from utils import calculate_diversity_score
 from sentence_transformers import SentenceTransformer
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers.modeling_utils import PreTrainedModel
 from transformers.configuration_utils import PretrainedConfig
-from peft import PeftModel
-
 
 if not hasattr(PretrainedConfig, "use_cache"):
     PretrainedConfig.use_cache = False
@@ -41,7 +39,10 @@ def _patched_getattr(self, name):
 
 PreTrainedModel.__getattr__ = _patched_getattr
 
-_original_finalize = PreTrainedModel._finalize_model_loading
+if hasattr(PreTrainedModel, "_finalize_model_loading"):
+    _original_finalize = PreTrainedModel._finalize_model_loading
+
+# _original_finalize = PreTrainedModel._finalize_model_loading
 
 
 def _patched_finalize(self, *args, **kwargs):

@@ -1,6 +1,9 @@
-import torch
 from abc import ABC, abstractmethod
+
 from typing import List, Dict, Optional, Tuple
+
+import torch
+
 from feature_extractor import FeatureExtractor
 
 
@@ -51,6 +54,7 @@ class ODDStrategy(DiverseStrategy):
         logits_in[mask_index] = active_logits
 
         all_norm_vecs, all_quals = self.feature_extractor.extract(logits_in, mask_index, x)
+
         total_loss = 0
         current_basis = [h.detach().flatten() for h in history_vecs]
 

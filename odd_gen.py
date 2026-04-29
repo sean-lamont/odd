@@ -1,10 +1,68 @@
+import functools
+import os
+import sys
+
 import hydra
+import torch
 from omegaconf import DictConfig
 
 from feature_extractor import FeatureExtractor
 from generator import DiverseGenerator
 from strategies import get_strategy
 from utils import load_model
+
+from feature_extractor import FeatureExtractor
+from generator import DiverseGenerator
+from strategies import get_strategy
+
+sys.path.append(os.path.join(os.getcwd(), "human-eval"))
+from human_eval.data import read_problems
+from human_eval.execution import check_correctness
+
+from odd_gen import load_model
+from utils import calculate_diversity_score
+from sentence_transformers import SentenceTransformer
+
+from transformers.modeling_utils import PreTrainedModel
+from transformers.configuration_utils import PretrainedConfig
+
+if not hasattr(PretrainedConfig, "use_cache"):
+    PretrainedConfig.use_cache = False
+
+_original_getattr = getattr(PreTrainedModel, "__getattr__", torch.nn.Module.__getattr__)
+
+
+def _patched_getattr(self, name):
+    if name == "all_tied_weights_keys": return {}
+    return _original_getattr(self, name)
+
+
+PreTrainedModel.__getattr__ = _patched_getattr
+
+if hasattr(PreTrainedModel, "_finalize_model_loading"):
+    _original_finalize = PreTrainedModel._finalize_model_loading
+
+# _original_finalize = PreTrainedModel._finalize_model_loading
+
+
+def _patched_finalize(self, *args, **kwargs):
+    if hasattr(self, "tie_weights"):
+        original_tie_weights = self.tie_weights
+
+        @functools.wraps(original_tie_weights)
+        def safe_tie_weights(*tw_args, **tw_kwargs):
+            tw_kwargs.pop("tied_weight_pointers", None)
+            tw_kwargs.pop("missing_keys", None)
+            tw_kwargs.pop("recompute_mapping", None)
+            return original_tie_weights(*tw_args, **tw_kwargs)
+
+        self.tie_weights = safe_tie_weights
+    return _original_finalize(self, *args, **kwargs)
+
+
+PreTrainedModel._finalize_model_loading = _patched_finalize
+
+
 
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")

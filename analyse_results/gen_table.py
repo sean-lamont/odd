@@ -175,7 +175,7 @@ if __name__ == "__main__":
         he_csv='humaneval.csv',
         strategy_col='strategy',
         temp_col='temperature',
-        target_strategy='odd',
-        dpp_strategy='dpp',
+        target_strategy='batched_orth', # odd for new runs
+        dpp_strategy='joint', # dpp for new runs
         alpha_key='alpha'
     )

@@ -1,21 +1,17 @@
 import datetime
 import json
+
 import altair as alt
 import pandas as pd
 import streamlit as st
-import torch
-import hydra
-from omegaconf import OmegaConf
-from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
-from odd_gen import load_model
-
-# IMPORT THE NEW MODULAR FILES
-from feature_extractor import FeatureExtractor
-from strategies import get_strategy
-from app_generator import AppGenerator
-
 from hydra import compose, initialize
 from hydra.core.global_hydra import GlobalHydra
+
+from app_generator import AppGenerator
+# IMPORT THE NEW MODULAR FILES
+from feature_extractor import FeatureExtractor
+from odd_gen import load_model
+from strategies import get_strategy
 
 
 def load_config():

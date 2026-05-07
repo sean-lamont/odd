@@ -1,30 +1,25 @@
-import os
 import re
-import sys
 import time
 
 import hydra
 import numpy as np
 import torch
+import wandb
 from datasets import load_dataset
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
 
-import wandb
 from feature_extractor import FeatureExtractor
+from human_eval.data import read_problems
+from human_eval.execution import check_correctness
 from strategies import get_strategy
 from sweep_human_eval import clean_code_for_harness
 from utils import calculate_diversity_score
 
-sys.path.append(os.path.join(os.getcwd(), "human-eval"))
-from human_eval.data import read_problems
-from human_eval.execution import check_correctness
-
-from tqdm import tqdm
-
 # --- Sweep Parameters ---
-TARGET_TASKS = ["gsm8k"]#, "humaneval"]
-ALGS = ["origin"]#["maskgit_plus", "origin"]
+TARGET_TASKS = ["gsm8k", "humaneval"]
+ALGS = ["origin", "maskgit_plus"]
 TEMPERATURES = [0.0, 0.5, 1.0, 1.5, 2.0]
 ALPHAS = [8.0, 16.0, 64.0, 128.0]
 

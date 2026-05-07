@@ -10,7 +10,7 @@
 \midrule
 \multicolumn{6}{l}{\textit{Baseline (Standard LLaDA)}} \\
 0   & $61.0 \pm 0.0$ & $74.8 \pm 0.2$ & $81.3 \pm 0.7$ & $83.4 \pm 0.6$ & $76.5 \pm 0.4$ \\
-\multicolumn{6}{l}{\textit{Joint Strategy}} \\
+\multicolumn{6}{l}{\textit{dpp Strategy}} \\
 2   & $63.5 \pm 0.0$ & $75.9 \pm 0.7$ & $82.3 \pm 0.7$ & $83.9 \pm 0.8$ & $77.1 \pm 0.6$ \\
 8   & $62.5 \pm 0.0$ & $67.1 \pm 0.6$ & $76.6 \pm 0.2$ & $82.5 \pm 0.4$ & $79.3 \pm 0.5$ \\
 16   & $61.5 \pm 0.0$ & $65.5 \pm 0.4$ & $70.2 \pm 0.5$ & $78.7 \pm 0.8$ & $80.8 \pm 0.7$ \\
@@ -31,7 +31,7 @@
 \midrule
 \multicolumn{6}{l}{\textit{Baseline (Standard LLaDA)}} \\
 0   & $19.5 \pm 0.0$ & $33.5 \pm 0.4$ & $42.7 \pm 0.6$ & $41.8 \pm 0.8$ & $7.7 \pm 0.6$ \\
-\multicolumn{6}{l}{\textit{Joint Strategy}} \\
+\multicolumn{6}{l}{\textit{dpp Strategy}} \\
 2   & $31.1 \pm 0.0$ & $36.7 \pm 0.6$ & $46.6 \pm 0.4$ & $43.9 \pm 0.5$ & $7.2 \pm 0.7$ \\
 8   & $32.9 \pm 0.0$ & $37.9 \pm 0.5$ & $44.2 \pm 0.6$ & $45.3 \pm 0.5$ & $13.6 \pm 0.5$ \\
 16   & $32.9 \pm 0.0$ & $35.6 \pm 0.3$ & $39.4 \pm 0.6$ & $42.6 \pm 0.9$ & $26.4 \pm 1.0$ \\

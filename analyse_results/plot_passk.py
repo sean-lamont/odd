@@ -153,7 +153,8 @@ if __name__ == "__main__":
         max_k=16,
         alpha_key='alpha',
         strategy_name_key='name',
-        allowed_strategies=['baseline', 'odd']
+        allowed_strategies=['baseline', 'batched_orth']
+        # allowed_strategies = ['baseline', 'odd']
     )
     plot_pass_at_k_grid_bespoke(
         csv_path='humaneval.csv',
@@ -164,6 +165,7 @@ if __name__ == "__main__":
         max_k=16,
         alpha_key='alpha',
         strategy_name_key='name',
-        allowed_strategies=['baseline', 'odd']
+        allowed_strategies=['baseline', 'batched_orth']
+        # allowed_strategies = ['baseline', 'odd']
     )
 

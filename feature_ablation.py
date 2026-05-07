@@ -1,28 +1,22 @@
-import os
 import re
-import sys
 import time
 
 import hydra
 import numpy as np
+import wandb
 from datasets import load_dataset
 from omegaconf import OmegaConf
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
-import wandb
 from feature_extractor import FeatureExtractor
 from generator import DiverseGenerator
+from human_eval.data import read_problems
+from human_eval.execution import check_correctness
 from strategies import get_strategy
 from sweep_human_eval import clean_code_for_harness
 from utils import load_model, calculate_diversity_score
 
-sys.path.append(os.path.join(os.getcwd(), "human-eval"))
-from human_eval.data import read_problems
-from human_eval.execution import check_correctness
-
-from tqdm import tqdm
-
-# Set the target tasks
 TARGET_TASK = ["gsm8k", "humaneval"]
 
 # Fixed parameters for the ablation
@@ -30,20 +24,17 @@ STEPS = 32
 GEN_LENGTH = 64
 N_RUNS = 4
 
-# The explicit ablation grid (Baseline removed as requested)
 ABLATION_CONFIGS = [
-    # 1. Top-k Ablations (Logits + Max Pool)
     {"target": "logits", "pool": "max", "top_k": 32},
     {"target": "logits", "pool": "max", "top_k": 64},
     {"target": "logits", "pool": "max", "top_k": 128},
     {"target": "logits", "pool": "max", "top_k": 256},
 
-    # 2. Embedding Baseline
     {"target": "embeddings", "pool": "max", "top_k": 0},
 
-    # 3. Positional Pooling
-    {"target": "logits", "pool": "positional", "top_k": 0},
-    {"target": "embeddings", "pool": "positional", "top_k": 0},
+    # # Positional Pooling
+    # {"target": "logits", "pool": "positional", "top_k": 0},
+    # {"target": "embeddings", "pool": "positional", "top_k": 0},
 ]
 
 # Optimal hyperparameters derived from the primary sweep
@@ -81,7 +72,7 @@ def main(base_cfg):
 
     print(f">>> Initializing Global Resources for Feature Ablation Eval...")
 
-    # Pre-load datasets so we don't re-fetch them 4 times
+    # Pre-load datasets
     loaded_datasets = {}
     for TASK in TARGET_TASK:
         params = BEST_PARAMS[TASK]
@@ -96,7 +87,6 @@ def main(base_cfg):
             problem_indices = range(min(params["n_problems"], len(dataset)))
             loaded_datasets[TASK] = (dataset, problem_indices)
 
-    # Outer loop: Run number (1 to 4)
     for run_idx in range(1, N_RUNS + 1):
         print(f"\n{'=' * 60}")
         print(f">>> STARTING STATISTICAL RUN {run_idx}/{N_RUNS}")
@@ -106,7 +96,6 @@ def main(base_cfg):
             params = BEST_PARAMS[TASK]
             dataset, problem_indices = loaded_datasets[TASK]
 
-            # Iterate over the grid
             for grid_cfg in ABLATION_CONFIGS:
 
                 cfg = base_cfg.copy()
@@ -115,7 +104,6 @@ def main(base_cfg):
                 cfg.strategy.alpha = params["alpha"]
                 cfg.strategy.quality_scale = 1.0
 
-                # Apply ablation specifics
                 cfg.strategy.target = grid_cfg["target"]
                 cfg.strategy.pool = grid_cfg["pool"]
                 cfg.strategy.top_k = grid_cfg["top_k"]
@@ -226,7 +214,7 @@ def main(base_cfg):
                             pass_at_k_totals[k].append(score)
                             cumulative_totals[k] = cumulative_correct
 
-                        # Commented out per-problem print to reduce spam with tqdm
+                        # per-problem print
                         # print(f"[{i + 1}/{len(problem_indices)}] Correct: {cumulative_correct} | Time: {gen_times[-1]:.2f}s")
 
                     avg_pass_at_k = {f"pass_at_{k}": np.mean(v) for k, v in pass_at_k_totals.items()}

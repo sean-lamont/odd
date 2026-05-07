@@ -6,7 +6,7 @@ from tqdm import tqdm
 
 def export_project_data(project_path, output_csv):
     """
-    Fetches run data, configs, summaries, and GPU metrics for a given W&B project.
+    Fetches run data, configs, summaries, and metrics for a given W&B project.
     """
     api = wandb.Api()
     runs = api.runs(project_path)
@@ -33,5 +33,5 @@ def export_project_data(project_path, output_csv):
 
 
 if __name__ == "__main__":
-    export_project_data("sean-a-lamont/odd_gsm8k", "gsm8k.csv")
-    export_project_data("sean-a-lamont/odd_humaneval", "humaneval.csv")
+    export_project_data("YOUR_WANDB_ENTITY/your_gsm8k_project", "gsm8k.csv")
+    export_project_data("YOUR_WANDB_ENTITY/your_humaneval_project", "humaneval.csv")

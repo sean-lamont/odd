@@ -11,7 +11,7 @@ gen_length: 64
 temperature: 0.01
 #seed: 42
 use_wandb: false
-wandb_project: "text_dpp"
+wandb_project: ""
 wandb_entity: null
 use_confidence_weighting: true
 ignore_pad: false

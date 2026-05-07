@@ -14,7 +14,8 @@ def plot_pass1_vs_pass16_avg_alpha(json_path, filename):
         return
 
     rows = []
-    ALLOWED_STRATEGIES = ["baseline", "odd"]
+    # ALLOWED_STRATEGIES = ["baseline", "odd"]
+    ALLOWED_STRATEGIES = ["baseline", "batched_orth", "odd"] # legacy name for ODD strategy, provided csv uses this
 
     for problem_id, runs_list in data.items():
         for run in runs_list:

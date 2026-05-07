@@ -128,8 +128,8 @@ def load_results(filename="wandb_results.json"):
 if __name__ == "__main__":
 
     # --- CONFIGURATION ---
-    ENTITY = "sean-a-lamont"  # Update with your W&B Entity
-    PROJECT = "odd_gsm8k"  # Update with your W&B Project Name
+    ENTITY = "YOUR_WANDB_ENTITY"  # Update with your W&B Entity
+    PROJECT = "your_gsm8k_project"  # Update with your W&B Project Name
     TABLE_NAME = "results_table"  # The specific table name to look for
     FILENAME = "gsm8k_table.json"
 
@@ -155,8 +155,8 @@ if __name__ == "__main__":
 
 
     # --- CONFIGURATION ---
-    ENTITY = "sean-a-lamont"  # Update with your W&B Entity
-    PROJECT = "odd_humaneval"  # Update with your W&B Project Name
+    ENTITY = "YOUR_WANDB_ENTITY"  # Update with your W&B Entity
+    PROJECT = "your_humaneval_project"  # Update with your W&B Project Name
     TABLE_NAME = "results_table"  # The specific table name to look for
     FILENAME = "humaneval_table.json"
 

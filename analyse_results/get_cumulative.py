@@ -6,7 +6,8 @@ def generate_latex_table(datasets):
     """
     Parses datasets and directly outputs a formatted LaTeX table.
     """
-    ALLOWED_STRATEGIES = ["baseline", "odd"]
+    # ALLOWED_STRATEGIES = ["baseline", "odd"]
+    ALLOWED_STRATEGIES = ["baseline", "batched_orth", 'odd'] # legacy name for ODD strategy, provided csv uses this
 
     all_stats = {}
     all_totals = {}

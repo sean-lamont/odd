@@ -6,7 +6,7 @@ channels:
 dependencies:
   - python=3.9
   - cuda-toolkit=12.8
-  - cuda-nvcc             # The CUDA compiler required for flash-attn
-  - gcc_linux-64          # C compiler
-  - gxx_linux-64          # C++ compiler
+  - cuda-nvcc
+  - gcc_linux-64
+  - gxx_linux-64
   - pip

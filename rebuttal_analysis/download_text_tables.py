@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -56,21 +57,62 @@ DEFAULT_PROJECTS = [
 TABLE_KEY = "results_table"
 
 
-def find_table_json(run, table_key: str):
-    """Download the run's results table artifact; return path to .table.json."""
+class NoTableError(Exception):
+    """Run has no results_table at all (legitimate skip, not an error)."""
+
+
+def find_table_json(run, table_key: str, cache_dir: str):
+    """Locate and download the run's results table; return path to .table.json.
+
+    Two routes, in order:
+      1. logged artifact ``run-<id>-results_table:v0`` — the canonical route,
+         but on some old runs (wandb 0.13.5 era) the artifact manifest query
+         returns None ('NoneType' object is not subscriptable) even though the
+         artifact is listed;
+      2. the run FILE ``media/table/<table_key>_<step>_<hash>.table.json`` —
+         wandb always stores logged tables as run files too. If several steps
+         were logged, the highest step wins.
+
+    Raises NoTableError when the run has neither.
+    """
+    art_error = None
     target = None
-    for artifact in run.logged_artifacts():
-        if table_key in artifact.name:
-            target = artifact
-            break
-    if target is None:
-        return None
-    table_dir = target.download()
-    for root, _dirs, files in os.walk(table_dir):
-        for fn in files:
-            if fn.endswith(".table.json"):
-                return os.path.join(root, fn)
-    return None
+    try:
+        for artifact in run.logged_artifacts():
+            if table_key in artifact.name:
+                target = artifact
+                break
+        if target is not None:
+            table_dir = target.download()
+            for root, _dirs, files in os.walk(table_dir):
+                for fn in files:
+                    if fn.endswith(".table.json"):
+                        return os.path.join(root, fn)
+    except Exception as e:  # fall through to the run-files route
+        art_error = e
+
+    try:
+        cands = [f for f in run.files()
+                 if table_key in f.name and f.name.endswith(".table.json")]
+    except Exception as e:
+        raise RuntimeError(f"artifact route failed ({art_error}); "
+                           f"run.files() also failed: {e}") from e
+    if not cands:
+        if art_error is not None:
+            raise RuntimeError(f"artifact route failed ({art_error}) and no "
+                               f"{table_key} run file found") from art_error
+        raise NoTableError(f"no {table_key} artifact or run file")
+
+    def step_of(f):
+        m = re.search(re.escape(table_key) + r"_(\d+)_", f.name)
+        return int(m.group(1)) if m else -1
+
+    best = max(cands, key=step_of)
+    root = os.path.join(cache_dir, run.id)
+    os.makedirs(root, exist_ok=True)
+    fobj = best.download(root=root, replace=True)
+    path = getattr(fobj, "name", None)
+    return path if isinstance(path, str) else os.path.join(root, best.name)
 
 
 def process_run(run, project: str, out_dir: str, table_key: str) -> str:
@@ -79,9 +121,11 @@ def process_run(run, project: str, out_dir: str, table_key: str) -> str:
         return "skipped (exists)"
 
     cfg = parse_run_config(run.config)
-    json_path = find_table_json(run, table_key)
-    if json_path is None:
-        return "no results_table artifact"
+    try:
+        json_path = find_table_json(run, table_key,
+                                    cache_dir=os.path.join(out_dir, "_wandb_cache"))
+    except NoTableError as e:
+        return f"SKIP: {e}"
 
     with open(json_path) as f:
         table = json.load(f)
@@ -171,7 +215,7 @@ def main():
                 status = process_run(run, project, args.out, args.table_key)
             except Exception as e:
                 status = f"ERROR: {e}"
-            if "skipped" not in status:
+            if status.startswith("saved"):
                 n_done += 1
             print(f"  [{run.name} | {cfg.get('strategy_name')} a={cfg.get('alpha')} "
                   f"T={cfg.get('temperature')}] {status}")

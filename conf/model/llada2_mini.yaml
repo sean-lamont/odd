@@ -1,0 +1,11 @@
+name: "inclusionAI/LLaDA2.0-mini"
+load_in_4bit: true
+# LLaDA2.0 config has no mask_token_id; 156895 is the default from the native
+# generate() signature in modeling_llada2_moe.py.
+mask_token_id: 156895
+# eos doubles as pad for this tokenizer.
+eos_token_id: 156892
+pad_token_id: 156892
+# Native block-diffusion decoding parameters (LLaDA2MoeModelLM.generate defaults).
+block_length: 32
+threshold: 0.95

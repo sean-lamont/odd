@@ -32,8 +32,8 @@ def build_arg_parser(description, default_project, default_gen_length):
                         help="Strategy config names under conf/strategy (default: baseline odd)")
     parser.add_argument("--alphas", nargs="+", type=float, default=[16.0],
                         help="Strategy alphas to sweep (ignored/collapsed to 0 for baseline)")
-    parser.add_argument("--temperatures", nargs="+", type=float, default=[0.0, 1.0],
-                        help="Sampling temperatures to sweep")
+    parser.add_argument("--temperatures", nargs="+", type=float, default=[0.5, 1.0, 1.5],
+                        help="Sampling temperatures to sweep (0 and 2 are degenerate cases)")
     parser.add_argument("--n-problems", type=int, default=-1,
                         help="Number of problems to evaluate (-1 = all)")
     parser.add_argument("--n-runs", type=int, default=1,
@@ -45,6 +45,13 @@ def build_arg_parser(description, default_project, default_gen_length):
                         help="Generation length in tokens")
     parser.add_argument("--model-config", type=str, default="llada",
                         help="Model config name under conf/model")
+    parser.add_argument("--alg", type=str, default="maskgit_plus",
+                        choices=["origin", "maskgit_plus", "entropy", "topk_margin"],
+                        help="Dream only: diffusion_generate remasking strategy "
+                             "(paper setting: maskgit_plus; Dream's own eval.sh uses entropy)")
+    parser.add_argument("--top-p", type=float, default=None,
+                        help="Dream only: nucleus top_p for diffusion_generate "
+                             "(default None = 1.0, i.e. sweep_dream.py behaviour)")
     parser.add_argument("--wandb-project", type=str, default=default_project)
     parser.add_argument("--wandb-group", type=str, default="rebuttal")
     parser.add_argument("--wandb-mode", type=str, default=None,
@@ -90,6 +97,10 @@ def compose_cfg(args, strategy, alpha, temperature):
         f"steps={args.steps}",
         f"gen_length={args.gen_length}",
     ]
+    if getattr(args, "alg", None):
+        overrides.append(f"++model.alg={args.alg}")
+    if getattr(args, "top_p", None) is not None:
+        overrides.append(f"++model.top_p={args.top_p}")
     with hydra.initialize(version_base=None, config_path="conf"):
         cfg = hydra.compose(config_name="config", overrides=overrides)
     return cfg
@@ -102,7 +113,11 @@ def compose_cfg(args, strategy, alpha, temperature):
 def load_shared_resources(cfg):
     """Load the (4-bit) model once, plus the sentence-transformer used for the
     diversity metric. Mirrors the global setup of sweep_human_eval.py so memory
-    behaviour is identical."""
+    behaviour is identical. Model configs with backend: "dream" are routed to
+    the Dream loader (which mirrors sweep_dream.py)."""
+    if cfg.model.get("backend", "llada") == "dream":
+        return _load_dream_resources(cfg)
+
     from sentence_transformers import SentenceTransformer
 
     from utils import load_model
@@ -110,6 +125,53 @@ def load_shared_resources(cfg):
     model, tokenizer, embedding_matrix, mask_token_id = load_model(cfg)
     eval_model = SentenceTransformer("all-MiniLM-L6-v2")
     return {
+        "backend": "llada",
+        "model": model,
+        "tokenizer": tokenizer,
+        "embedding_matrix": embedding_matrix,
+        "mask_token_id": mask_token_id,
+        "eval_model": eval_model,
+    }
+
+
+def _load_dream_resources(cfg):
+    """Dream model setup, lifted from sweep_dream.py: 4-bit nf4 bnb quant,
+    trust_remote_code AutoModel, mask token resolved from the tokenizer with a
+    vocab fallback, embedding matrix from model.model.embed_tokens.
+
+    NOTE: Dream needs its own env (transformers 4.46.x, torch 2.5.x); run with
+    PYTHONNOUSERSITE=1 if the box has stray user-site packages."""
+    import torch
+    from sentence_transformers import SentenceTransformer
+    from transformers import AutoModel, AutoTokenizer, BitsAndBytesConfig
+
+    print(f"Loading {cfg.model.name}...")
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=cfg.model.load_in_4bit,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_use_double_quant=True,
+    )
+    model = AutoModel.from_pretrained(
+        cfg.model.name,
+        quantization_config=bnb_config,
+        trust_remote_code=True,
+        device_map="auto",
+    )
+    tokenizer = AutoTokenizer.from_pretrained(cfg.model.name, trust_remote_code=True)
+    model.eval()
+
+    mask_token_id = tokenizer.mask_token_id
+    if mask_token_id is None:
+        for t in ["<|mask|>", "[MASK]", "<mask>"]:
+            if t in tokenizer.get_vocab():
+                mask_token_id = tokenizer.get_vocab()[t]
+                break
+
+    embedding_matrix = model.model.embed_tokens.weight.detach()
+    eval_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return {
+        "backend": "dream",
         "model": model,
         "tokenizer": tokenizer,
         "embedding_matrix": embedding_matrix,
@@ -119,11 +181,41 @@ def load_shared_resources(cfg):
 
 
 def build_generator(cfg, shared):
-    """Build FeatureExtractor + strategy + DiverseGenerator for one grid combo,
-    exactly as sweep_human_eval.py does inside its objective()."""
+    """Build FeatureExtractor + strategy + generator for one grid combo.
+
+    LLaDA-style backends get DiverseGenerator exactly as sweep_human_eval.py
+    does inside its objective(); backend "dream" gets a DreamGenerator that
+    injects the strategy through diffusion_generate's logits hook, exactly as
+    sweep_dream.py does."""
     from feature_extractor import FeatureExtractor
-    from generator import DiverseGenerator
     from strategies import get_strategy
+
+    if shared.get("backend") == "dream":
+        # sweep_dream.py always builds the extractor with ignore_token_ids=[]
+        # ("Prevents the in-place softmax bug") -- mirror that here.
+        feature_extractor = FeatureExtractor(
+            embedding_matrix=shared["embedding_matrix"],
+            kernel_target=cfg.strategy.target,
+            pooling_method=cfg.strategy.pool,
+            top_k=cfg.strategy.get("top_k", 0),
+            use_confidence_weighting=cfg.get("use_confidence_weighting", True),
+            ignore_token_ids=[],
+        )
+        strategy = None
+        if cfg.strategy.name != "baseline":
+            strategy = get_strategy(
+                cfg.strategy.name,
+                cfg.strategy.alpha,
+                cfg.strategy.quality_scale,
+                feature_extractor,
+            )
+        return DreamGenerator(
+            shared["model"], shared["tokenizer"], strategy,
+            shared["mask_token_id"], cfg.model.alg,
+            top_p=cfg.model.get("top_p", None),
+        )
+
+    from generator import DiverseGenerator
 
     feature_extractor = FeatureExtractor(
         embedding_matrix=shared["embedding_matrix"],
@@ -140,6 +232,101 @@ def build_generator(cfg, shared):
         feature_extractor,
     )
     return DiverseGenerator(shared["model"], shared["tokenizer"], strategy, shared["mask_token_id"])
+
+
+class DreamGenerator:
+    """Wraps Dream's model.diffusion_generate behind the same generate()
+    interface as generator.DiverseGenerator, replicating sweep_dream.py:
+      - prompt is wrapped in the chat template (add_generation_prompt=True),
+      - batch_size independent samples per problem ([prompt] * B),
+      - the ODD strategy is injected across the batch via
+        generation_logits_hook_func with step-decayed alpha
+        (alpha * (1 - step/steps)), applied to the generated slice only,
+      - strategy=None means baseline (no hook passed at all),
+      - temperature clamped at 0.0; alg from the model config / --alg
+        (maskgit_plus = paper setting; origin/entropy/topk_margin selectable);
+      - top_p defaults to 1.0 (sweep_dream.py behaviour) unless --top-p is
+        given (e.g. 0.9 for Dream's native eval.sh-style config).
+    torch is imported lazily so --dry-run works without it."""
+
+    def __init__(self, model, tokenizer, strategy, mask_token_id, alg, top_p=None):
+        self.model = model
+        self.tokenizer = tokenizer
+        self.strategy = strategy  # None => baseline
+        # Freeze the configured alpha now: the hook mutates strategy.alpha
+        # every step (as sweep_dream.py does), so the decay must always start
+        # from the original value.
+        self.base_alpha = strategy.alpha if strategy is not None else 0.0
+        self.mask_token_id = mask_token_id
+        self.alg = alg
+        self.top_p = 1.0 if top_p is None else top_p
+
+    def generate(self, prompt, batch_size, steps, gen_length, temperature):
+        import torch
+
+        messages = [{"role": "user", "content": prompt}]
+        prompt_str = self.tokenizer.apply_chat_template(
+            messages, add_generation_prompt=True, tokenize=False
+        )
+
+        encoded = self.tokenizer(
+            [prompt_str] * batch_size, return_tensors="pt", padding=True,
+            add_special_tokens=False,
+        )
+        input_ids = encoded.input_ids.to(self.model.device)
+        attention_mask = encoded.attention_mask.to(self.model.device)
+        prompt_len = input_ids.shape[1]
+
+        active_hook = None
+        if self.strategy is not None:
+            strategy = self.strategy
+            base_alpha = self.base_alpha
+            mask_token_id = self.mask_token_id
+
+            def hook(step, x, logits):
+                with torch.enable_grad():
+                    gen_x = x[:, prompt_len:]
+                    gen_logits = logits[:, prompt_len:, :].clone()
+                    gen_mask = (gen_x == mask_token_id)
+
+                    if not gen_mask.any():
+                        return logits
+
+                    step_alpha = base_alpha * (1.0 - (step / steps))
+                    strategy.alpha = step_alpha
+
+                    if step_alpha > 0.0:
+                        guided_gen_logits, _ = strategy.apply(
+                            logits=gen_logits, mask_index=gen_mask, x=gen_x,
+                            history_vecs=[], history_qualities=[],
+                            protected_tokens=None,
+                        )
+                        logits[:, prompt_len:, :] = guided_gen_logits.detach()
+
+                    return logits
+
+            active_hook = hook
+
+        gen_kwargs = {
+            "attention_mask": attention_mask,
+            "max_new_tokens": gen_length,
+            "steps": steps,
+            "temperature": temperature if temperature > 0.0 else 0.0,
+            "top_p": self.top_p,
+            "alg": self.alg,
+            "return_dict_in_generate": True,
+        }
+        if active_hook is not None:
+            gen_kwargs["generation_logits_hook_func"] = active_hook
+
+        with torch.no_grad():
+            output = self.model.diffusion_generate(input_ids, **gen_kwargs)
+
+        samples = [
+            self.tokenizer.decode(g[prompt_len:].tolist(), skip_special_tokens=True)
+            for g in output.sequences
+        ]
+        return [], samples
 
 
 # ---------------------------------------------------------------------------

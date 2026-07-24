@@ -1,0 +1,12 @@
+name: "Dream-org/Dream-v0-Instruct-7B"
+# Selects the Dream generation path in bench_common.py (diffusion_generate +
+# generation_logits_hook_func) instead of DiverseGenerator.
+backend: "dream"
+load_in_4bit: true
+# Dream's tokenizer defines the mask token; resolved at load time with the
+# same vocab fallback as sweep_dream.py ("<|mask|>", "[MASK]", "<mask>").
+mask_token_id: null
+# diffusion_generate remasking strategy: origin | maskgit_plus | entropy | topk_margin.
+# maskgit_plus is the paper's setting; Dream's own eval.sh uses entropy
+# (with temperature 0.1, top_p 0.9). Override per run with --alg / --top-p.
+alg: "maskgit_plus"

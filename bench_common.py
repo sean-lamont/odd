@@ -52,6 +52,10 @@ def build_arg_parser(description, default_project, default_gen_length):
     parser.add_argument("--top-p", type=float, default=None,
                         help="Dream only: nucleus top_p for diffusion_generate "
                              "(default None = 1.0, i.e. sweep_dream.py behaviour)")
+    parser.add_argument("--eos-conf-inf", action="store_true",
+                        help="LLaDA only: floor the unmask confidence of EOS/PAD "
+                             "predictions (official generate.py confidence_eos_eot_inf "
+                             "analogue; default off = paper behaviour)")
     parser.add_argument("--wandb-project", type=str, default=default_project)
     parser.add_argument("--wandb-group", type=str, default="rebuttal")
     parser.add_argument("--wandb-mode", type=str, default=None,
@@ -101,6 +105,8 @@ def compose_cfg(args, strategy, alpha, temperature):
         overrides.append(f"++model.alg={args.alg}")
     if getattr(args, "top_p", None) is not None:
         overrides.append(f"++model.top_p={args.top_p}")
+    if getattr(args, "eos_conf_inf", False):
+        overrides.append("++eos_conf_inf=true")
     with hydra.initialize(version_base=None, config_path="conf"):
         cfg = hydra.compose(config_name="config", overrides=overrides)
     return cfg
@@ -231,7 +237,8 @@ def build_generator(cfg, shared):
         cfg.strategy.quality_scale,
         feature_extractor,
     )
-    return DiverseGenerator(shared["model"], shared["tokenizer"], strategy, shared["mask_token_id"])
+    return DiverseGenerator(shared["model"], shared["tokenizer"], strategy, shared["mask_token_id"],
+                            eos_conf_inf=bool(cfg.get("eos_conf_inf", False)))
 
 
 class DreamGenerator:

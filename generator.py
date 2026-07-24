@@ -32,14 +32,19 @@ def get_num_transfer_tokens(mask_index, steps):
 
 
 class DiverseGenerator:
-    def __init__(self, model, tokenizer, strategy: DPPStrategy, mask_token_id: int):
+    def __init__(self, model, tokenizer, strategy: DPPStrategy, mask_token_id: int,
+                 eos_conf_inf: bool = False):
         self.model = model
         self.tokenizer = tokenizer
         self.strategy = strategy
         self.mask_token_id = mask_token_id
+        self.eos_conf_inf = eos_conf_inf
         self.device = model.device
 
-    def generate(self, prompt: str, batch_size: int, steps: int, gen_length: int, temperature: float) -> Tuple[List[Dict], List[str]]:
+    def generate(self, prompt: str, batch_size: int, steps: int, gen_length: int, temperature: float,
+                 eos_conf_inf: bool = None) -> Tuple[List[Dict], List[str]]:
+        if eos_conf_inf is None:
+            eos_conf_inf = self.eos_conf_inf
         messages = [{"role": "user", "content": prompt}]
         prompt_str = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
 
@@ -89,6 +94,17 @@ class DiverseGenerator:
 
                 x0 = torch.where(mask_index, x0, x)
                 confidence = torch.where(mask_index, x0_p, torch.tensor(-float('inf')).to(x0_p.device))
+
+                # Optional EOS suppression analogous to the official LLaDA
+                # generate.py `confidence_eos_eot_inf` flag (default off there
+                # and here): positions predicted as EOS/PAD get -inf unmask
+                # confidence, so they only commit when the transfer schedule
+                # forces them, preventing premature termination commits.
+                if eos_conf_inf:
+                    eos_pred = (x0 == self.tokenizer.eos_token_id)
+                    if self.tokenizer.pad_token_id is not None:
+                        eos_pred |= (x0 == self.tokenizer.pad_token_id)
+                    confidence = torch.where(eos_pred, torch.tensor(-float('inf')).to(confidence.device), confidence)
 
                 transfer_index = torch.zeros_like(x0, dtype=torch.bool, device=x0.device)
                 for j in range(batch_size):

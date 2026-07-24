@@ -6,3 +6,7 @@
 # missing. It is strongly recommended for robust equivalence checking
 # (fractions, sqrt forms, interval notation, ...).
 math-verify==0.9.0
+# The datasets==2.18.0 pin in requirements.txt cannot parse current HF Hub dataset encodings.
+datasets==5.0.0
+# wandb 0.13.5 imports pkg_resources, which setuptools>=81 removed (breaks on py3.11 boxes).
+setuptools<81

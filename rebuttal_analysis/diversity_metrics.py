@@ -47,6 +47,7 @@ import itertools
 import os
 import re
 import sys
+import time
 from collections import defaultdict
 
 import numpy as np
@@ -146,6 +147,30 @@ def get_embedder(name: str):
     raise ValueError(f"unknown embedder {name!r}")
 
 
+class CachedEmbedder:
+    """Wraps an embedder with a text->vector cache so each unique text in a run
+    is encoded once (baseline batches are often mostly duplicates)."""
+
+    def __init__(self, base):
+        self.base = base
+        self.name = base.name
+        self.cache = {}
+
+    def warm(self, texts):
+        todo = list({t for t in texts if t not in self.cache})
+        if todo:
+            vecs = self.base.encode(todo)
+            for t, v in zip(todo, vecs):
+                self.cache[t] = np.asarray(v)
+
+    def encode(self, texts):
+        self.warm(texts)
+        return np.stack([self.cache[t] for t in texts])
+
+    def clear(self):
+        self.cache.clear()
+
+
 def _l2_normalize(X: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(X, axis=1, keepdims=True)
     norms[norms == 0] = 1.0
@@ -210,21 +235,29 @@ def tokenize(text: str):
 
 
 def token_edit_distance(a_tokens, b_tokens) -> int:
-    """Levenshtein distance over token sequences (insert/delete/substitute)."""
+    """Levenshtein distance over token sequences (insert/delete/substitute).
+
+    Vectorized row DP: deletion/substitution terms are elementwise over the
+    previous row; the insertion term cur[j-1]+1 (a sequential dependency) is
+    resolved exactly via a prefix-min of (cur[k] - k) + j.
+    """
     la, lb = len(a_tokens), len(b_tokens)
-    if la == 0:
-        return lb
-    if lb == 0:
-        return la
-    prev = list(range(lb + 1))
+    if la == 0 or lb == 0:
+        return la + lb
+    # map tokens to int ids for fast comparison
+    ids = {}
+    a = np.fromiter((ids.setdefault(t, len(ids)) for t in a_tokens), dtype=np.int32, count=la)
+    b = np.fromiter((ids.setdefault(t, len(ids)) for t in b_tokens), dtype=np.int32, count=lb)
+    prev = np.arange(lb + 1, dtype=np.int32)
+    idx = np.arange(lb + 1, dtype=np.int32)
     for i in range(1, la + 1):
-        cur = [i] + [0] * lb
-        ai = a_tokens[i - 1]
-        for j in range(1, lb + 1):
-            cost = 0 if ai == b_tokens[j - 1] else 1
-            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+        cost = (b != a[i - 1]).astype(np.int32)
+        cur = np.empty(lb + 1, dtype=np.int32)
+        cur[0] = i
+        cur[1:] = np.minimum(prev[1:] + 1, prev[:-1] + cost)  # delete / substitute
+        cur = np.minimum.accumulate(cur - idx) + idx           # insert via prefix-min
         prev = cur
-    return prev[lb]
+    return int(prev[lb])
 
 
 def normalized_edit_distance(a: str, b: str):
@@ -427,9 +460,11 @@ KEY_COLS = ["benchmark", "model", "alg", "strategy", "alpha", "temperature"]
 
 
 def process_all(data_dir, out_dir, embedder_name="minilm", cluster_threshold=0.3,
-                headline_alpha=16.0, max_runs=None, projects=None):
+                headline_alpha=16.0, max_runs=None, projects=None, alphas=None):
+    """``alphas``: if given, only process runs whose alpha is in the list
+    (baseline runs are always kept)."""
     os.makedirs(out_dir, exist_ok=True)
-    embedder = get_embedder(embedder_name)
+    embedder = CachedEmbedder(get_embedder(embedder_name))
 
     per_batch_rows = []
     # For novelty: (benchmark, temperature, alg) -> problem -> list of baseline texts
@@ -439,14 +474,21 @@ def process_all(data_dir, out_dir, embedder_name="minilm", cluster_threshold=0.3
 
     n_runs = 0
     for path, meta, df in iter_runs(data_dir, projects=projects):
+        cfg = meta["config"]
+        if alphas is not None and cfg.get("strategy_class") != "baseline" \
+                and cfg.get("alpha") not in [float(a) for a in alphas]:
+            continue
         if max_runs is not None and n_runs >= max_runs:
             break
         n_runs += 1
-        cfg = meta["config"]
         bench = meta.get("benchmark")
         key = config_key(meta)
         pool_key = (bench, cfg.get("temperature"), cfg.get("alg"))
-        print(f"[{n_runs}] {os.path.basename(path)}  {key}")
+        t0 = time.time()
+        embedder.clear()  # cache per run: dedupe within, bound memory across
+        embedder.warm([str(t) for t in df["text"].tolist()])
+        print(f"[{n_runs}] {os.path.basename(path)}  {key}  "
+              f"({len(embedder.cache)} unique / {len(df)} texts)", flush=True)
 
         for bid, g in df.groupby("batch_id"):
             texts = [str(t) for t in g["text"].tolist()]
@@ -478,6 +520,7 @@ def process_all(data_dir, out_dir, embedder_name="minilm", cluster_threshold=0.3
                 ct = [t for t, c in zip(texts, flags) if c]
                 if ct:
                     odd_correct[pool_key][(meta["run_id"], key[4], str(pid))] = ct
+        print(f"    done in {time.time() - t0:.1f}s", flush=True)
 
     per_batch = pd.DataFrame(per_batch_rows)
     per_batch.to_csv(os.path.join(out_dir, "per_batch_metrics.csv"), index=False)
@@ -657,11 +700,13 @@ def main():
     ap.add_argument("--headline-alpha", type=float, default=16.0)
     ap.add_argument("--projects", nargs="+", default=None)
     ap.add_argument("--max-runs", type=int, default=None)
+    ap.add_argument("--alphas", nargs="+", type=float, default=None,
+                    help="only process runs with these alphas (baseline always kept)")
     args = ap.parse_args()
     process_all(args.data_dir, args.out_dir, embedder_name=args.embedder,
                 cluster_threshold=args.cluster_threshold,
                 headline_alpha=args.headline_alpha,
-                max_runs=args.max_runs, projects=args.projects)
+                max_runs=args.max_runs, projects=args.projects, alphas=args.alphas)
 
 
 if __name__ == "__main__":

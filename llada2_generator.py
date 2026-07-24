@@ -252,6 +252,11 @@ class LLaDA2DiverseGenerator:
                     if curr_alpha > 0.0:
                         gen_mask = cur_x[:, prompt_length:] == self.mask_token_id
                         gen_logits = logits[:, prompt_length:, :].to(self.strategy_dtype)
+                        # The active (last) block can overlap the prompt tail in the
+                        # first gen block, so the gen region may be shorter than
+                        # block_length. Keep the fp32 active-block slice and later
+                        # overwrite only the part covered by the gen region.
+                        active_logits = logits[:, -self.block_length:, :].clone()
                         del logits  # free the full fp32 logits during the strategy's autograd pass
                         self.strategy.alpha = curr_alpha
                         try:
@@ -265,7 +270,8 @@ class LLaDA2DiverseGenerator:
                                 )
                         finally:
                             self.strategy.alpha = original_alpha
-                        active_logits = guided[:, -self.block_length:, :].float()
+                        overlap = min(self.block_length, window_end - prompt_length)
+                        active_logits[:, -overlap:, :] = guided[:, -overlap:, :].float()
                         del gen_logits, guided
                     else:
                         active_logits = logits[:, -self.block_length:, :]

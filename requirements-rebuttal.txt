@@ -1,0 +1,8 @@
+# Extra dependencies for the NeurIPS rebuttal harnesses (sweep_mbpp.py, sweep_math500.py).
+# Everything else they need is already pinned in requirements.txt.
+#
+# math-verify is optional at runtime: sweep_math500.py imports it in a
+# try/except and falls back to normalized string / numeric matching if it is
+# missing. It is strongly recommended for robust equivalence checking
+# (fractions, sqrt forms, interval notation, ...).
+math-verify==0.9.0

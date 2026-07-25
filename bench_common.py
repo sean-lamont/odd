@@ -123,6 +123,8 @@ def load_shared_resources(cfg):
     the Dream loader (which mirrors sweep_dream.py)."""
     if cfg.model.get("backend", "llada") == "dream":
         return _load_dream_resources(cfg)
+    if cfg.model.get("backend", "llada") == "llada2":
+        return _load_llada2_resources(cfg)
 
     from sentence_transformers import SentenceTransformer
 
@@ -186,6 +188,28 @@ def _load_dream_resources(cfg):
     }
 
 
+def _load_llada2_resources(cfg):
+    """LLaDA2.0 block-diffusion setup via llada2_generator.load_llada2
+    (AutoModelForCausalLM + trust_remote_code, 4-bit nf4). Features are
+    logit-space (llada2_smoke.py convention), so no embedding matrix is
+    exposed; mask/eos ids come from the model config yaml."""
+    from sentence_transformers import SentenceTransformer
+
+    from llada2_generator import load_llada2
+
+    print(f"Loading {cfg.model.name}...")
+    model, tokenizer = load_llada2(cfg.model.name, cfg.model.load_in_4bit)
+    eval_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return {
+        "backend": "llada2",
+        "model": model,
+        "tokenizer": tokenizer,
+        "embedding_matrix": None,
+        "mask_token_id": cfg.model.mask_token_id,
+        "eval_model": eval_model,
+    }
+
+
 def build_generator(cfg, shared):
     """Build FeatureExtractor + strategy + generator for one grid combo.
 
@@ -219,6 +243,37 @@ def build_generator(cfg, shared):
             shared["model"], shared["tokenizer"], strategy,
             shared["mask_token_id"], cfg.model.alg,
             top_p=cfg.model.get("top_p", None),
+        )
+
+    if shared.get("backend") == "llada2":
+        # llada2_smoke.py conventions: logit-space features (no embedding
+        # matrix), ignore_token_ids=[] -- eos/pad/mask protection happens
+        # inside LLaDA2DiverseGenerator via protected_tokens.
+        from llada2_generator import LLaDA2DiverseGenerator
+
+        if cfg.strategy.name == "baseline":
+            strategy = get_strategy("baseline", 0.0, 0.0, None)
+        else:
+            feature_extractor = FeatureExtractor(
+                embedding_matrix=None,
+                kernel_target=cfg.strategy.target,
+                pooling_method=cfg.strategy.pool,
+                top_k=cfg.strategy.get("top_k", 0),
+                use_confidence_weighting=cfg.get("use_confidence_weighting", True),
+                ignore_token_ids=[],
+            )
+            strategy = get_strategy(
+                cfg.strategy.name,
+                cfg.strategy.alpha,
+                cfg.strategy.quality_scale,
+                feature_extractor,
+            )
+        return LLaDA2DiverseGenerator(
+            shared["model"], shared["tokenizer"], strategy,
+            mask_token_id=cfg.model.mask_token_id,
+            block_length=cfg.model.block_length,
+            threshold=cfg.model.threshold,
+            eos_token_id=cfg.model.eos_token_id,
         )
 
     from generator import DiverseGenerator

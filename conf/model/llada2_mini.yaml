@@ -1,4 +1,6 @@
 name: "inclusionAI/LLaDA2.0-mini"
+# Routes bench_common to the LLaDA2 block-diffusion adapter (llada2_generator.py).
+backend: "llada2"
 load_in_4bit: true
 # LLaDA2.0 config has no mask_token_id; 156895 is the default from the native
 # generate() signature in modeling_llada2_moe.py.

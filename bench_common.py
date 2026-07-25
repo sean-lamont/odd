@@ -125,6 +125,8 @@ def load_shared_resources(cfg):
         return _load_dream_resources(cfg)
     if cfg.model.get("backend", "llada") == "llada2":
         return _load_llada2_resources(cfg)
+    if cfg.model.get("backend", "llada") == "gemma_diffusion":
+        return _load_gemma_diffusion_resources(cfg)
 
     from sentence_transformers import SentenceTransformer
 
@@ -210,6 +212,28 @@ def _load_llada2_resources(cfg):
     }
 
 
+def _load_gemma_diffusion_resources(cfg):
+    """DiffusionGemma setup via gemma_diffusion_generator.load_diffusion_gemma
+    (DiffusionGemmaForBlockDiffusion + 4-bit nf4, transformers >= 5.14).
+    Features are logit-space; there is no mask token (random-init canvases)."""
+    from sentence_transformers import SentenceTransformer
+
+    from gemma_diffusion_generator import load_diffusion_gemma
+
+    print(f"Loading {cfg.model.name}...")
+    model, processor = load_diffusion_gemma(cfg.model.name, cfg.model.load_in_4bit)
+    eval_model = SentenceTransformer("all-MiniLM-L6-v2")
+    return {
+        "backend": "gemma_diffusion",
+        "model": model,
+        "processor": processor,
+        "tokenizer": processor.tokenizer,
+        "embedding_matrix": None,
+        "mask_token_id": None,
+        "eval_model": eval_model,
+    }
+
+
 def build_generator(cfg, shared):
     """Build FeatureExtractor + strategy + generator for one grid combo.
 
@@ -244,6 +268,29 @@ def build_generator(cfg, shared):
             shared["mask_token_id"], cfg.model.alg,
             top_p=cfg.model.get("top_p", None),
         )
+
+    if shared.get("backend") == "gemma_diffusion":
+        # Dream-style: baseline passes NO processor at all; ODD rides the
+        # public logits_processor API. Logit-space features as with llada2.
+        from gemma_diffusion_generator import GemmaDiffusionDiverseGenerator
+
+        strategy = None
+        if cfg.strategy.name != "baseline":
+            feature_extractor = FeatureExtractor(
+                embedding_matrix=None,
+                kernel_target=cfg.strategy.target,
+                pooling_method=cfg.strategy.pool,
+                top_k=cfg.strategy.get("top_k", 0),
+                use_confidence_weighting=cfg.get("use_confidence_weighting", True),
+                ignore_token_ids=[],
+            )
+            strategy = get_strategy(
+                cfg.strategy.name,
+                cfg.strategy.alpha,
+                cfg.strategy.quality_scale,
+                feature_extractor,
+            )
+        return GemmaDiffusionDiverseGenerator(shared["model"], shared["processor"], strategy)
 
     if shared.get("backend") == "llada2":
         # llada2_smoke.py conventions: logit-space features (no embedding

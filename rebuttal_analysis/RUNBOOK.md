@@ -156,3 +156,20 @@ tests; reported numbers must use `minilm`.
    but the cloud LLaDA GSM8K runs were launched with `n_problems = 300`
    (config spot-check). Per-run config is captured in each file's meta line —
    trust that, not the script.
+
+## DiffusionGemma probe (added 2026-07-25)
+
+Fresh env (transformers v5 API — do NOT touch the dream env):
+```
+conda create -y -n gemma_rebuttal python=3.12
+conda run -n gemma_rebuttal pip install "transformers>=5.14" torch bitsandbytes accelerate sentence-transformers "datasets>=5" wandb "setuptools<81"
+```
+Checkpoint download is ~52GB bf16 (quantized to 4-bit nf4 on load, ~15GB VRAM).
+Probe (single-canvas: gen_length <= 256 keeps the ODD anneal exact):
+```
+python sweep_gsm8k_plain.py --model-config diffusion_gemma --n-problems 3  --strategies baseline odd --alphas 4   --temperatures 1.0 --gen-length 256 --steps 32   # sanity + coherence check
+python sweep_gsm8k_plain.py --model-config diffusion_gemma --n-problems 50 --strategies odd      --alphas 1 4 --temperatures 1.0 --gen-length 256 --steps 32   # alpha probe (LLaDA2 lesson: small alpha)
+```
+Open items before quoting numbers: verify the processor sees (B, canvas, V) logits
+and canvas ids as input_ids (adapter is defensive but log-check the first run);
+compare baseline at constant-theta vs native t_max->t_min schedule.

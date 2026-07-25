@@ -1,0 +1,11 @@
+name: "google/diffusiongemma-26B-A4B-it"
+# Routes bench_common to the DiffusionGemma logits-processor adapter
+# (gemma_diffusion_generator.py). Needs transformers >= 5.14 in its own env.
+backend: "gemma_diffusion"
+load_in_4bit: true
+# DiffusionGemma canvases initialize with random vocab tokens (no mask token);
+# kept for interface parity with the other model configs.
+mask_token_id: null
+# Canvas ("block") length from the checkpoint config; gen_length <= 256 keeps
+# generation single-canvas so ODD's alpha anneal is exact.
+canvas_length: 256

@@ -54,11 +54,14 @@ def load_diffusion_gemma(model_name: str = MODEL_NAME, load_in_4bit: bool = True
         )
 
     processor = AutoProcessor.from_pretrained(model_name)
+    # device_map={"": 0}: put everything on the (single visible) GPU. "auto"
+    # over-estimates the quantized MoE footprint and preemptively dispatches
+    # modules to CPU, which the bnb quantizer then refuses.
     model = DiffusionGemmaForBlockDiffusion.from_pretrained(
         model_name,
         quantization_config=quant_config,
         torch_dtype=torch.bfloat16,
-        device_map="auto",
+        device_map={"": 0},
     )
     model.eval()
     return model, processor

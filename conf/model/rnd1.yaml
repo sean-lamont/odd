@@ -1,0 +1,32 @@
+name: "radicalnumerics/RND1-Base-0910"
+# Routes bench_common to the RND1 full-sequence masked-diffusion adapter
+# (rnd1_generator.py). Needs transformers ~= 4.57 (fused Qwen3MoeExperts +
+# conversion_mapping) and trust_remote_code.
+backend: "rnd1"
+load_in_4bit: true
+# Token ids from the checkpoint config.json (radicalnumerics/RND1-Base-0910).
+mask_token_id: 151669
+eos_token_id: 151645
+pad_token_id: 151643
+# RND1-Base is a BASE model: raw-string prompts, NO chat template. GSM8K sweeps
+# prepend the standard few-shot CoT prefix (bench_common.apply_prompt_style);
+# the prefix lives in the frozen prompt segment, never in the mask canvas.
+prompt_style: "fewshot_gsm8k"
+# First k of the standard 8 exemplars. 8 = the standard 8-shot prompt;
+# the RND1 report (Table 4.1, GSM8K 80.0) evaluates 4-shot CoT -- set 4 to
+# match that protocol.
+fewshot_k: 8
+# Native sampler notes (rnd/sampling.py + demo_rnd_generation.py): entropy-based
+# unmasking, checkpoint default num_diffusion_steps=256 (the harness --steps
+# flag controls the actual run), greedy iff temperature == 0.
+num_diffusion_steps: 256
+# demo default: force EOS at the last canvas position ("coherent endings").
+add_eos_at_end: true
+# Base-model few-shot continuation guard: decoded samples are truncated at the
+# first stop string, so last-number answer extraction never sees a
+# self-continued "Question: ..." exemplar.
+stop_strings:
+  - "Question:"
+# Optional native filters (null = off, the native default).
+top_k: null
+top_p: null

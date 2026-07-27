@@ -32,6 +32,7 @@ from datasets import load_dataset
 import wandb
 from bench_common import (
     aggregate_metrics,
+    apply_prompt_style,
     build_arg_parser,
     build_generator,
     compose_cfg,
@@ -144,7 +145,11 @@ def main():
                 if gold is None:
                     continue  # identical to sweep_gsm8k.py
 
-                prompt = build_gsm8k_prompt(q)
+                # Default: zero-shot CoT prompt (identical to sweep_gsm8k.py).
+                # Model configs with prompt_style: fewshot_gsm8k (base models,
+                # e.g. rnd1) get the standard k-shot prefix instead; the prefix
+                # lives entirely in the prompt segment, never in the canvas.
+                prompt = apply_prompt_style(cfg, q, build_gsm8k_prompt(q))
 
                 start_t = time.time()
                 if args.dry_run:

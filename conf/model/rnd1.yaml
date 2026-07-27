@@ -15,7 +15,7 @@ prompt_style: "fewshot_gsm8k"
 # First k of the standard 8 exemplars. 8 = the standard 8-shot prompt;
 # the RND1 report (Table 4.1, GSM8K 80.0) evaluates 4-shot CoT -- set 4 to
 # match that protocol.
-fewshot_k: 8
+fewshot_k: 4
 # Native sampler notes (rnd/sampling.py + demo_rnd_generation.py): entropy-based
 # unmasking, checkpoint default num_diffusion_steps=256 (the harness --steps
 # flag controls the actual run), greedy iff temperature == 0.

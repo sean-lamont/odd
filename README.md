@@ -3,7 +3,9 @@
 <p align="center">
   <strong>Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models</strong>
 </p>
-
+<p align="center">
+  <strong>Accepted as a conference paper at NeurIPS26</strong>
+</p>
 <div align="center">
 
 [![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2603.04893)

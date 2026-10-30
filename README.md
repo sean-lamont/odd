@@ -1,14 +1,12 @@
 <h1 align="center">ODD: Orthogonal Diverse Diffusion</h1>
 
 <p align="center">
-  <strong>Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models</strong>
+  <strong>Free Lunch for Pass@k? Low Cost Diverse Sampling for Diffusion Language Models (NeurIPS26)</strong>
 </p>
-<p align="center">
-  <strong>Accepted as a conference paper at NeurIPS26</strong>
-</p>
+
 <div align="center">
 
-[![arXiv Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2603.04893)
+[![Paper](https://img.shields.io/badge/Paper-arXiv-b31b1b.svg?style=flat-square)](https://arxiv.org/abs/2603.04893)
 [![Project Website](https://img.shields.io/badge/Website-Project_Page-1f425f.svg?style=flat-square)](https://sean-lamont.github.io/odd/)
 [![Live Demo](https://img.shields.io/badge/Demo-Hugging_Face-blue.svg?style=flat-square)](https://huggingface.co/spaces/sean-lamont/ODD-Demo)
 [![Weights & Biases GSM8K](https://img.shields.io/badge/W&B-GSM8K-FFBE00.svg?style=flat-square&logo=weightsandbiases&logoColor=white)](https://wandb.ai/sean-a-lamont/odd_gsm8k)
@@ -31,7 +29,7 @@
   <img src="docs/assets/fig1.png" alt="Overview Diagram" width="80%">
 </p>
 
-This repository contains the official implementation of **ODD (Orthogonal Diverse Diffusion)**, a training-free inference strategy designed to enhance the diversity and sample efficiency of Diffusion Language Models (such as LLaDA).
+This repository contains the official implementation of **ODD (Orthogonal Diverse Diffusion)**, a training-free inference strategy designed to enhance the diversity and sample efficiency of Diffusion Language Models (such as LLaDA). 
 
 By applying a lightweight, geometric repulsion term during the denoising process, ODD forces the model to explore distinct reasoning paths within a single batch, significantly improving **Pass@k** performance on reasoning and coding benchmarks like GSM8K and HumanEval with negligible computational overhead.
 
